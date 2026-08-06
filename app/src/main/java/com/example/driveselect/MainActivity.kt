@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
 
     private fun probarFirestore() {
         val testData = hashMapOf(
-            "mensaje" to "¡Conectado desde DriveSelect, papá!",
+            "mensaje" to "¡Conectado desde DriveSelect",
             "timestamp" to System.currentTimeMillis()
         )
 
