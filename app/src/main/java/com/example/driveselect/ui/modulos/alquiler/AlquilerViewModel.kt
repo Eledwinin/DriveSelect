@@ -9,7 +9,6 @@ import com.example.driveselect.funciones.Calculos
 class AlquilerViewModel(
     private val repository: AutoRepository = AutoRepository()
 ): ViewModel() {
-
     fun procesarReserva(
         auto: Auto,
         nombreCliente: String,
@@ -19,7 +18,6 @@ class AlquilerViewModel(
     ){
         val dias = Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
         val costo = Calculos.calcularCostoTotal(dias, auto.precioPorDia)
-
         val nuevoAlquiler = Alquiler(
             autoId = auto.id,
             autoMarca = auto.marca,
