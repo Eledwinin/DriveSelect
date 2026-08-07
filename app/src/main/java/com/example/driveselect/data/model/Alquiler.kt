@@ -12,5 +12,5 @@ data class Alquiler(
     val fechaEntregaTexto: String = "",
     val diasTotales: Int = 0,
     val costoTotal: Double = 0.0,
-    val estadoAlquiler: String = "ACTIVO"
+    val estadoAlquiler: String = "pendiente"
 )

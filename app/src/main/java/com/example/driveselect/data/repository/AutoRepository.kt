@@ -8,72 +8,88 @@ import com.google.firebase.firestore.ListenerRegistration
 
 class AutoRepository {
 
-    //inicializamos el inventario de los 8 vehiculos
-
+    // inicializar la bd
     fun iniciarInventario(onComplete: () -> Unit) {
-        FirebaseService.db.collection("autos").get().addOnSuccessListener { snapshot ->
-            if (snapshot.isEmpty) {
-                val autosIniciales = listOf(
-                    Auto("", "Toyota", "Corolla 2023", 35.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Honda", "Civic 2024", 40.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Nissan", "Sentra 2023", 32.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Hyundai", "Tucson 2023", 50.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Kia", "Sportage 2023", 55.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Mazda", "CX-5 2023", 52.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Ford", "Mustang 2022", 85.00, AutoEstado.DISPONIBLE.displayName),
-                    Auto("", "Chevrolet", "Camaro 2023", 90.00, AutoEstado.DISPONIBLE.displayName)
-                )
+        FirebaseService.db.collection("autos").get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.isEmpty) {
+                    val autosIniciales = listOf(
+                        Auto("", "Toyota", "Corolla 2023", 35.0, AutoEstado.DISPONIBLE.displayName, "corolla20233"),
+                        Auto("", "Honda", "Civic 2024", 40.0, AutoEstado.DISPONIBLE.displayName, "civic2024"),
+                        Auto("", "Nissan", "Sentra 2023", 32.0, AutoEstado.DISPONIBLE.displayName, "centra2023"),
+                        Auto("", "Hyundai", "Tucson 2023", 50.0, AutoEstado.DISPONIBLE.displayName, "tucson2023"),
+                        Auto("", "Kia", "Sportage 2023", 55.0, AutoEstado.DISPONIBLE.displayName, "sportage2023"),
+                        Auto("", "Mazda", "CX-5 2023", 52.0, AutoEstado.DISPONIBLE.displayName, "cx5"),
+                        Auto("", "Ford", "Mustang 2022", 85.0, AutoEstado.DISPONIBLE.displayName, "mustang2022"),
+                        Auto("", "Chevrolet", "Camaro 2023", 95.0, AutoEstado.DISPONIBLE.displayName, "camaro2023")
+                    )
 
-                val batch = FirebaseService.db.batch()
-                autosIniciales.forEach { auto ->
-                    val docRef = FirebaseService.db.collection("autos").document()
-                    val autoconId = auto.copy(id = docRef.id)
-                    batch.set(docRef, autoconId)
+                    val batch = FirebaseService.db.batch()
+                    autosIniciales.forEach { auto ->
+                        val docRef = FirebaseService.db.collection("autos").document()
+                        val autoconId = auto.copy(id = docRef.id)
+                        batch.set(docRef, autoconId)
+                    }
+                    batch.commit().addOnSuccessListener { onComplete() }
+                        .addOnFailureListener { onComplete() }
+                } else {
+                    onComplete()
                 }
-                batch.commit().addOnSuccessListener { onComplete() }
-            } else {
+            }
+            .addOnFailureListener {
                 onComplete()
             }
-        }
     }
 
-    //funcion para obtener los autos de la base de datos
+    // funcion para obtener los carros de la bd
     fun obtenerAutos(onResultado: (List<Auto>) -> Unit): ListenerRegistration {
-        return FirebaseService.db.collection("autos").addSnapshotListener { snapshot, _ ->
-            if (snapshot != null) {
-                val lista = snapshot.toObjects(Auto::class.java)
-                onResultado (lista)
+        return FirebaseService.db.collection("autos").addSnapshotListener { snapshot, error ->
+            if (error != null || snapshot == null) {
+                onResultado(emptyList())
+                return@addSnapshotListener
             }
+
+            val lista = snapshot.documents.mapNotNull { doc ->
+                try {
+                    Auto(
+                        id = doc.id,
+                        marca = doc.getString("marca") ?: "",
+                        modelo = doc.getString("modelo") ?: "",
+                        precioPorDia = doc.getDouble("precioPorDia") ?: 0.0,
+                        estado = doc.getString("estado") ?: AutoEstado.DISPONIBLE.displayName,
+                        imagenUrl = doc.getString("imagenUrl") ?: ""
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            onResultado(lista)
         }
     }
 
-    // Cambiar el estado del auto en firestore
+    // cambiar el estado del auto en firestore
     fun actualizarEstadoAuto(autoId: String, nuevoEstado: AutoEstado, onSuccess: () -> Unit) {
+        if (autoId.isEmpty()) return
         FirebaseService.db.collection("autos").document(autoId)
             .update("estado", nuevoEstado.displayName)
             .addOnSuccessListener { onSuccess() }
     }
 
-    //esto es para el registro del alquiler, va a pasar el auto a alquilado en process
+    // Registro del alquiler
+    fun registrarAlquiler(alquiler: Alquiler, onSuccess: () -> Unit) {
+        val docRef = FirebaseService.db.collection("alquileres").document()
+        val alquilerconId = alquiler.copy(id = docRef.id)
 
-    fun registrarAlquiler(alquiler: Alquiler, onSuccess: () -> Unit){
-        val docRef = FirebaseService.db.collection("alguileres").document()
-        val alquilerconId = alquiler.copy (id = docRef.id)
-
-        docRef.set (alquilerconId).addOnSuccessListener {
+        docRef.set(alquilerconId).addOnSuccessListener {
             actualizarEstadoAuto(alquiler.autoId, AutoEstado.ALQUILADO_EN_PROCESO, onSuccess)
         }
     }
 
-    //cuadno el cliente retire el auto, se actualiza a "alquilado en uso"
-    fun marcarComoRetirado(autoId: String, onSuccess: () -> Unit){
+    fun marcarComoRetirado(autoId: String, onSuccess: () -> Unit) {
         actualizarEstadoAuto(autoId, AutoEstado.ALQUILADO_EN_USO, onSuccess)
     }
 
-    //cuando el cliente regresa el auto, se actualiza a disponible
     fun marcarComoDevuelto(autoId: String, onSuccess: () -> Unit) {
         actualizarEstadoAuto(autoId, AutoEstado.DISPONIBLE, onSuccess)
     }
 }
-
-

@@ -56,6 +56,10 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // Dependencia de Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     //este gestiona las versiones de Firebase automáticamente
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
