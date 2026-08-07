@@ -22,6 +22,13 @@ class InventarioViewModel(
 
     private var ListenerAutos: ListenerRegistration? = null
 
+    private val _autoSeleccionado = MutableStateFlow<Auto?>(null)
+    val autoSeleccionado: StateFlow<Auto?> = _autoSeleccionado.asStateFlow()
+
+    fun seleccionarAuto(auto: Auto) {
+        _autoSeleccionado.value = auto
+    }
+
     init {
         cargarInventario()
     }

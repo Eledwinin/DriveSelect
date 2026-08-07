@@ -12,6 +12,10 @@ class AlquilerViewModel(
     fun procesarReserva(
         auto: Auto,
         nombreCliente: String,
+        telefonoCliente: String,
+        duiCliente: String,
+        licenciaCliente: String,
+        correoCliente: String,
         fechaInicio: Long,
         fechaFin: Long,
         onExito: () -> Unit
@@ -23,12 +27,17 @@ class AlquilerViewModel(
             autoMarca = auto.marca,
             autoModelo = auto.modelo,
             nombreCliente = nombreCliente,
-            fechaRecogida = fechaFin,
-            fechaEntrega = fechaInicio,
+            telefonoCliente = telefonoCliente,
+            correoCliente = correoCliente,
+            documentoCliente = duiCliente,
+            licenciaCliente = licenciaCliente,
+            fechaRecogida = fechaInicio,
+            fechaEntrega = fechaFin,
             fechaRecogidaTexto = Calculos.formatearFecha(fechaInicio),
             fechaEntregaTexto = Calculos.formatearFecha(fechaFin),
             diasTotales = dias,
-            costoTotal = costo
+            costoTotal = costo,
+            estado = "pendiente"
         )
         repository.registrarAlquiler(nuevoAlquiler){
             onExito()
