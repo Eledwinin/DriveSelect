@@ -35,8 +35,7 @@ import com.example.driveselect.ui.theme.*
 fun AutoListScreen(
     viewModel: InventarioViewModel,
     onReservarClick: (Auto) -> Unit = {},
-    onEntregarClick: (Auto) -> Unit = {},
-    onDevolverClick: (Auto) -> Unit = {}
+    onGestionClick: () -> Unit = {}
 ) {
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -57,7 +56,7 @@ fun AutoListScreen(
         ) {
             Column {
                 Text(
-                    text = "Hola, Recepción",
+                    text = "Catálogo",
                     color = TextPrimary,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -72,20 +71,21 @@ fun AutoListScreen(
                 )
             }
 
+            // BOTÓN ACCESO ADMIN
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(30.dp))
                     .background(
                         Brush.horizontalGradient(listOf(GoldLight, GoldPrimary, GoldDark))
                     )
-                    .clickable {}
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clickable { onGestionClick() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "+ AGREGAR",
+                    text = "SOLICITUDES",
                     color = Color.Black,
                     fontWeight = FontWeight.Black,
-                    fontSize = 11.sp
+                    fontSize = 10.sp
                 )
             }
         }
@@ -106,9 +106,7 @@ fun AutoListScreen(
                 items(autos, key = { it.id }) { auto ->
                     AutoCardItem(
                         auto = auto,
-                        onReservarClick = { onReservarClick(auto) },
-                        onEntregarClick = { onEntregarClick(auto) },
-                        onDevolverClick = { onDevolverClick(auto) }
+                        onReservarClick = { onReservarClick(auto) }
                     )
                 }
             }
@@ -119,13 +117,10 @@ fun AutoListScreen(
 @Composable
 fun AutoCardItem(
     auto: Auto,
-    onReservarClick: () -> Unit,
-    onEntregarClick: () -> Unit,
-    onDevolverClick: () -> Unit
+    onReservarClick: () -> Unit
 ) {
     val context = LocalContext.current
 
-    // Carga segura del recurso drawable
     val drawableResId = remember(auto.imagenUrl) {
         try {
             if (auto.imagenUrl.isNotBlank()) {
@@ -144,8 +139,8 @@ fun AutoCardItem(
     }
 
     val (colorEstado, textoEstado) = when (auto.estado) {
-        AutoEstado.ALQUILADO_EN_PROCESO.displayName -> Pair(StatusOrangeGlow, "EN PROCESO")
-        AutoEstado.ALQUILADO_EN_USO.displayName -> Pair(StatusRedGlow, "EN USO")
+        AutoEstado.ALQUILADO_EN_PROCESO.displayName -> Pair(StatusOrangeGlow, "ALQUILADO EN PROCESO")
+        AutoEstado.ALQUILADO_EN_USO.displayName -> Pair(StatusRedGlow, "ALQUILADO EN USO")
         else -> Pair(StatusGreenGlow, "DISPONIBLE")
     }
 
@@ -245,40 +240,17 @@ fun AutoCardItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // BOTONES DE ACCIÓN
-            Box(
-                contentAlignment = Alignment.Center
-            ) {
-                when (auto.estado) {
-                    AutoEstado.DISPONIBLE.displayName -> {
-                        BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
-                    }
-
-                    AutoEstado.ALQUILADO_EN_PROCESO.displayName -> {
-                        OutlinedButton(
-                            onClick = onEntregarClick,
-                            shape = RoundedCornerShape(12.dp),
-                            border = ButtonDefaults.outlinedButtonBorder.copy(
-                                brush = Brush.horizontalGradient(listOf(GoldLight, GoldPrimary))
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text("ENTREGAR", color = GoldPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
-
-                    AutoEstado.ALQUILADO_EN_USO.displayName -> {
-                        Button(
-                            onClick = onDevolverClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = StatusRedGlow),
-                            shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text("DEVOLVER", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
+            // ACCIONES SEGÚN ESTADO
+            Box(contentAlignment = Alignment.Center) {
+                if (auto.estado == AutoEstado.DISPONIBLE.displayName) {
+                    BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
+                } else {
+                    Text(
+                        text = "NO DISPONIBLE",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

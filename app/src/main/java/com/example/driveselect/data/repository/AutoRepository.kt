@@ -1,6 +1,7 @@
 package com.example.driveselect.data.repository
 
 import com.example.driveselect.data.firebase.FirebaseService
+import com.example.driveselect.data.firebase.FirebaseService.db
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.data.model.AutoEstado
@@ -91,5 +92,28 @@ class AutoRepository {
 
     fun marcarComoDevuelto(autoId: String, onSuccess: () -> Unit) {
         actualizarEstadoAuto(autoId, AutoEstado.DISPONIBLE, onSuccess)
+    }
+
+    // Obtener alquileres filtrados por estado
+
+    fun obtenerAlquileresPorEstado(estado: String, onResultado: (List<Alquiler>) -> Unit) {
+        db.collection("alquileres")
+            .whereEqualTo("estado", estado)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    onResultado(emptyList())
+                    return@addSnapshotListener
+                }
+                val lista = snapshot.toObjects(Alquiler::class.java)
+                onResultado(lista)
+            }
+    }
+
+    // cambiar el estado de un alquiler en Firestore, en uso, cancelado, finalizado
+    fun actualizarEstadoAlquiler(alquilerId: String, nuevoEstado: String, onSuccess: () -> Unit = {}) {
+        if (alquilerId.isEmpty()) return
+        FirebaseService.db.collection("alquileres").document(alquilerId)
+            .update("estado", nuevoEstado)
+            .addOnSuccessListener { onSuccess() }
     }
 }

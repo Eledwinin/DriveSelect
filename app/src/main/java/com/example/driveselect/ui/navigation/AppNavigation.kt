@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.ui.modulos.alquiler.AlquilerScreen
 import com.example.driveselect.ui.modulos.alquiler.AlquilerViewModel
+import com.example.driveselect.ui.modulos.gestion.GestionSolicitudesScreen
 import com.example.driveselect.ui.modulos.gestion.GestionViewModel
 import com.example.driveselect.ui.modulos.inventario.AutoListScreen
 import com.example.driveselect.ui.modulos.inventario.InventarioViewModel
@@ -35,11 +36,8 @@ fun AppNavigation(
                     inventarioViewModel.seleccionarAuto(auto)
                     navController.navigate(Rutas.Alquiler.ruta)
                 },
-                onEntregarClick = { auto ->
-                    gestionViewModel.entregarVehiculo(auto.id)
-                },
-                onDevolverClick = { auto ->
-                    gestionViewModel.devolverVehiculo(auto.id)
+                onGestionClick = {
+                    navController.navigate(Rutas.Gestion.ruta)
                 }
             )
         }
@@ -63,6 +61,13 @@ fun AppNavigation(
         // FORMULARIO PARA GESTIONAR
         composable(Rutas.Gestion.ruta) {
             val gestionViewModel: GestionViewModel = viewModel()
+
+            GestionSolicitudesScreen(
+                viewModel = gestionViewModel,
+                onVolverClick = {
+                    navController.popBackStack()
+                }
+            )
         }
     }
 }

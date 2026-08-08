@@ -3,6 +3,7 @@ package com.example.driveselect.ui.modulos.alquiler
 import androidx.lifecycle.ViewModel
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.data.model.Auto
+import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.data.repository.AutoRepository
 import com.example.driveselect.funciones.Calculos
 
@@ -22,6 +23,7 @@ class AlquilerViewModel(
     ){
         val dias = Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
         val costo = Calculos.calcularCostoTotal(dias, auto.precioPorDia)
+
         val nuevoAlquiler = Alquiler(
             autoId = auto.id,
             autoMarca = auto.marca,
@@ -39,8 +41,13 @@ class AlquilerViewModel(
             costoTotal = costo,
             estado = "pendiente"
         )
-        repository.registrarAlquiler(nuevoAlquiler){
-            onExito()
+
+
+        repository.registrarAlquiler(nuevoAlquiler) {
+            //  el estado del auto a ALQUILADO_EN_PROCESO
+            repository.actualizarEstadoAuto(auto.id, AutoEstado.ALQUILADO_EN_PROCESO) {
+                onExito()
+            }
         }
     }
 }
