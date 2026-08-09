@@ -31,6 +31,7 @@ import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.funciones.Calculos
 import com.example.driveselect.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AutoListScreen(
     viewModel: InventarioViewModel,
@@ -40,10 +41,13 @@ fun AutoListScreen(
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    // ESTADO PARA EL MODAL DE DETALLES
+    var autoDetalle by remember { mutableStateOf<Auto?>(null) }
+
     // ESTADO LOCAL PARA EL TEXTO DE BÚSQUEDA
     var searchText by remember { mutableStateOf("") }
 
-    // FILTRADO DINÁMICO POR MARCA O MODELO
+    // FILTRADO DINÁMICO
     val autosFiltrados = remember(autos, searchText) {
         if (searchText.isBlank()) {
             autos
@@ -136,10 +140,7 @@ fun AutoListScreen(
                             .padding(8.dp)
                     )
                 } else {
-                    Text(
-                        text = "🔍",
-                        fontSize = 14.sp
-                    )
+                    Text(text = "🔍", fontSize = 14.sp)
                 }
             },
             modifier = Modifier
@@ -174,10 +175,30 @@ fun AutoListScreen(
                 items(autosFiltrados, key = { it.id }) { auto ->
                     AutoCardItem(
                         auto = auto,
+                        onCardClick = { autoDetalle = auto }, // ABRE EL MODAL AL HACER CLIC EN LA TARJETA
                         onReservarClick = { onReservarClick(auto) }
                     )
                 }
             }
+        }
+    }
+
+    // MODAL DE DETALLES DEL VEHÍCULO
+    autoDetalle?.let { auto ->
+        ModalBottomSheet(
+            onDismissRequest = { autoDetalle = null },
+            containerColor = SurfaceCard,
+            scrimColor = Color.Black.copy(alpha = 0.6f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            ModalDetalleAutoContent(
+                auto = auto,
+                onReservarClick = {
+                    val autoAProcesar = auto
+                    autoDetalle = null // Cerrar modal
+                    onReservarClick(autoAProcesar) // Ir a alquiler
+                }
+            )
         }
     }
 }
@@ -185,6 +206,7 @@ fun AutoListScreen(
 @Composable
 fun AutoCardItem(
     auto: Auto,
+    onCardClick: () -> Unit,
     onReservarClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -221,7 +243,8 @@ fun AutoCardItem(
         modifier = Modifier
             .fillMaxWidth()
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(18.dp), spotColor = Color.Black)
-            .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(18.dp)),
+            .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(18.dp))
+            .clickable { onCardClick() }, // CLIC EN TODA LA TARJETA
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceCard)
     ) {
@@ -325,6 +348,7 @@ fun AutoCardItem(
     }
 }
 
+// COMPONENTES AUXILIARES
 @Composable
 private fun BotonAccionGold(texto: String, onClick: () -> Unit) {
     Button(
@@ -344,6 +368,160 @@ private fun BotonAccionGold(texto: String, onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Text(text = texto, color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+// DISEÑO DEL CONTENIDO DENTRO DEL MODAL
+@Composable
+private fun ModalDetalleAutoContent(
+    auto: Auto,
+    onReservarClick: () -> Unit
+) {
+    val context = LocalContext.current
+
+    val drawableResId = remember(auto.imagenUrl) {
+        try {
+            if (auto.imagenUrl.isNotBlank()) {
+                val id = context.resources.getIdentifier(
+                    auto.imagenUrl.trim(),
+                    "drawable",
+                    context.packageName
+                )
+                if (id != 0) id else R.drawable.ic_launcher_background
+            } else {
+                R.drawable.ic_launcher_background
+            }
+        } catch (e: Exception) {
+            R.drawable.ic_launcher_background
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp)
+    ) {
+        // IMAGEN DEL VEHÍCULO
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(SurfaceVariant)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(drawableResId)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "${auto.marca} ${auto.modelo}",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // MARCA Y MODELO
+        Text(
+            text = auto.marca.uppercase(),
+            color = GoldPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Text(
+            text = auto.modelo,
+            color = TextPrimary,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // PRECIO
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = Calculos.formatearMoneda(auto.precioPorDia),
+                color = TextPrimary,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                text = " / día",
+                color = TextSecondary,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // FICHA TÉCNICA (MOTOR Y ESTADO TRADUCIDO DE FIRESTORE)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkBackground, RoundedCornerShape(12.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // MUESTRA EL MOTOR DIRECTAMENTE DESDE LA DB
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Motor:", color = TextSecondary, fontSize = 12.sp)
+                Text(
+                    text = auto.motor.ifBlank { "No especificado" },
+                    color = TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
+
+            // ESTADO DEL VEHÍCULO
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Estado:", color = TextSecondary, fontSize = 12.sp)
+                Text(
+                    text = auto.estado,
+                    color = if (auto.estado == AutoEstado.DISPONIBLE.displayName) StatusGreenGlow else StatusRedGlow,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // BOTÓN RESERVAR SI ESTÁ DISPONIBLE
+        if (auto.estado == AutoEstado.DISPONIBLE.displayName) {
+            Button(
+                onClick = onReservarClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .background(
+                        brush = Brush.horizontalGradient(listOf(GoldLight, GoldPrimary, GoldDark)),
+                        shape = RoundedCornerShape(12.dp)
+                    ),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+            ) {
+                Text(
+                    text = "CONTINUAR A RESERVA",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }

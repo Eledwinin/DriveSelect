@@ -6,5 +6,6 @@ data class Auto(
     val modelo: String = "",
     val precioPorDia: Double = 0.0,
     val estado: String = AutoEstado.DISPONIBLE.name,
-    val imagenUrl: String = ""
+    val imagenUrl: String = "",
+    val motor: String = "" // campo que mostrare en ficha tecnica de solo lectura
 )
