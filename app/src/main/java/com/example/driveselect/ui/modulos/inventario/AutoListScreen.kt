@@ -40,6 +40,21 @@ fun AutoListScreen(
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    // ESTADO LOCAL PARA EL TEXTO DE BÚSQUEDA
+    var searchText by remember { mutableStateOf("") }
+
+    // FILTRADO DINÁMICO POR MARCA O MODELO
+    val autosFiltrados = remember(autos, searchText) {
+        if (searchText.isBlank()) {
+            autos
+        } else {
+            autos.filter { auto ->
+                auto.marca.contains(searchText, ignoreCase = true) ||
+                        auto.modelo.contains(searchText, ignoreCase = true)
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -50,7 +65,7 @@ fun AutoListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 20.dp),
+                .padding(bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -63,7 +78,7 @@ fun AutoListScreen(
                     letterSpacing = (-0.5).sp
                 )
                 Text(
-                    text = "FLOTA VIP (${autos.size} AUTOS)",
+                    text = "FLOTA VIP (${autosFiltrados.size} DE ${autos.size})",
                     color = TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -90,6 +105,48 @@ fun AutoListScreen(
             }
         }
 
+        // BUSCADOR EN EL ENCABEZADO
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            placeholder = {
+                Text(
+                    text = "Buscar por marca o modelo...",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = SurfaceCard,
+                unfocusedContainerColor = SurfaceCard,
+                focusedBorderColor = GoldPrimary,
+                unfocusedBorderColor = BorderSubtle,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            trailingIcon = {
+                if (searchText.isNotEmpty()) {
+                    Text(
+                        text = "✕",
+                        color = TextSecondary,
+                        modifier = Modifier
+                            .clickable { searchText = "" }
+                            .padding(8.dp)
+                    )
+                } else {
+                    Text(
+                        text = "🔍",
+                        fontSize = 14.sp
+                    )
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        )
+
         // LISTA DE AUTOS
         if (isLoading) {
             Box(
@@ -98,12 +155,23 @@ fun AutoListScreen(
             ) {
                 CircularProgressIndicator(color = GoldPrimary, strokeWidth = 3.dp)
             }
+        } else if (autosFiltrados.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No se encontraron vehículos",
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
+            }
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(autos, key = { it.id }) { auto ->
+                items(autosFiltrados, key = { it.id }) { auto ->
                     AutoCardItem(
                         auto = auto,
                         onReservarClick = { onReservarClick(auto) }
