@@ -12,6 +12,7 @@ class AlquilerViewModel(
 ): ViewModel() {
     fun procesarReserva(
         auto: Auto,
+        usuarioId: String, // <-- ID del usuario autenticado en Firebase
         nombreCliente: String,
         telefonoCliente: String,
         duiCliente: String,
@@ -25,6 +26,7 @@ class AlquilerViewModel(
         val costo = Calculos.calcularCostoTotal(dias, auto.precioPorDia)
 
         val nuevoAlquiler = Alquiler(
+            usuarioId = usuarioId, // <-- Vinculamos la reserva al cliente
             autoId = auto.id,
             autoMarca = auto.marca,
             autoModelo = auto.modelo,
@@ -42,9 +44,8 @@ class AlquilerViewModel(
             estado = "pendiente"
         )
 
-
         repository.registrarAlquiler(nuevoAlquiler) {
-            //  el estado del auto a ALQUILADO_EN_PROCESO
+            // Actualiza el estado del auto
             repository.actualizarEstadoAuto(auto.id, AutoEstado.ALQUILADO_EN_PROCESO) {
                 onExito()
             }

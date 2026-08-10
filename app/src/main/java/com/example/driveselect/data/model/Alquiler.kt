@@ -1,7 +1,11 @@
 package com.example.driveselect.data.model
 
+import com.google.firebase.firestore.IgnoreExtraProperties
+
+@IgnoreExtraProperties
 data class Alquiler(
     val id: String = "",
+    val usuarioId: String = "",
     val autoId: String = "",
     val autoMarca: String = "",
     val autoModelo: String = "",

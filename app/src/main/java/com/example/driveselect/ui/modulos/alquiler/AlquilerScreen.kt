@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.funciones.Calculos
 import com.example.driveselect.ui.theme.*
-
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 object FechasFuturasSelectableDates : SelectableDates {
@@ -41,7 +41,6 @@ fun AlquilerScreen(
     viewModel: AlquilerViewModel,
     onReservaExitosa: () -> Unit
 ) {
-
 
     var nombreCliente by remember { mutableStateOf("") }
     var telefonoCliente by remember { mutableStateOf("") }
@@ -64,8 +63,6 @@ fun AlquilerScreen(
     val costoTotal = remember(diasTotales, auto.precioPorDia) {
         Calculos.calcularCostoTotal(diasTotales, auto.precioPorDia)
     }
-
-
 
     Column(
         modifier = Modifier
@@ -120,7 +117,7 @@ fun AlquilerScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                //telefono
+                // telefono
                 OutlinedTextField(
                     value = telefonoCliente,
                     onValueChange = { telefonoCliente = it },
@@ -137,7 +134,8 @@ fun AlquilerScreen(
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
-                //correo
+
+                // correo
                 OutlinedTextField(
                     value = correoCliente,
                     onValueChange = { correoCliente = it },
@@ -151,11 +149,11 @@ fun AlquilerScreen(
                     ),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth()
-
                 )
+
                 Spacer(modifier = Modifier.height(10.dp))
 
-                //dui
+                // dui / licencia
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = documentoCliente,
@@ -184,6 +182,7 @@ fun AlquilerScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // selector Fecha Inicio
@@ -261,13 +260,18 @@ fun AlquilerScreen(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // BOTÓN CONFIRMAR
+        // BOTÓN CONFIRMAR RESERVA
         Button(
             onClick = {
                 if (nombreCliente.isNotBlank()) {
                     isLoading = true
+
+                    // Se obtiene el UID del usuario en Firebase Auth
+                    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
                     viewModel.procesarReserva(
                         auto = auto,
+                        usuarioId = currentUserId, // <-- UID enviado al ViewModel
                         nombreCliente = nombreCliente,
                         telefonoCliente = telefonoCliente,
                         duiCliente = documentoCliente,
@@ -308,7 +312,7 @@ fun AlquilerScreen(
     if (mostrarDatePickerInicio) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = fechaInicio,
-            selectableDates = FechasFuturasSelectableDates //esto es para bloqeuar dias que ya pasaron
+            selectableDates = FechasFuturasSelectableDates
         )
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
@@ -316,7 +320,6 @@ fun AlquilerScreen(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { nuevaFecha ->
                         fechaInicio = nuevaFecha
-                        // Si la fecha de devolución quedó antes que la nueva fecha de recogida, se ajusta
                         if (fechaFin < nuevaFecha) {
                             fechaFin = nuevaFecha + 86400000L
                         }
@@ -331,7 +334,6 @@ fun AlquilerScreen(
 
     // Modal Fecha Fin
     if (mostrarDatePickerFin) {
-        // la fecha de devolución solo puede ser igual o despues a la fecha de recogida
         val reglaFechaFin = remember(fechaInicio) {
             object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
@@ -342,7 +344,7 @@ fun AlquilerScreen(
         }
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = fechaFin,
-            selectableDates = reglaFechaFin // loquea días anteriores a la fecha de recogida
+            selectableDates = reglaFechaFin
         )
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },

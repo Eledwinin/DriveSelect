@@ -1,5 +1,6 @@
 package com.example.driveselect.data.repository
 
+import androidx.compose.ui.graphics.CompositingStrategy.Companion.Auto
 import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.firebase.FirebaseService.db
 import com.example.driveselect.data.model.Alquiler
@@ -116,5 +117,28 @@ class AutoRepository {
         FirebaseService.db.collection("alquileres").document(alquilerId)
             .update("estado", nuevoEstado)
             .addOnSuccessListener { onSuccess() }
+    }
+    fun obtenerHistorialUsuario(
+        usuarioId: String,
+        onResultado: (List<Alquiler>) -> Unit
+    ) {
+        if (usuarioId.isEmpty()) {
+            onResultado(emptyList())
+            return
+        }
+
+        FirebaseService.db.collection("alquileres")
+            .whereEqualTo("usuarioId", usuarioId)
+            .whereIn("estado", listOf("finalizado", "cancelado"))
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    onResultado(emptyList())
+                    return@addSnapshotListener
+                }
+                val lista = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Alquiler::class.java)?.copy(id = doc.id)
+                }
+                onResultado(lista)
+            }
     }
 }

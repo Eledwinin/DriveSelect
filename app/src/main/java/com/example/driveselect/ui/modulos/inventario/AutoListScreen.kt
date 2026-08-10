@@ -35,8 +35,9 @@ import com.example.driveselect.ui.theme.*
 @Composable
 fun AutoListScreen(
     viewModel: InventarioViewModel,
-    onReservarClick: (Auto) -> Unit = {},
-    onGestionClick: () -> Unit = {}
+    esAdmin: Boolean = false,
+    onReservarClick: (Auto) -> Unit,
+    onGestionClick: () -> Unit
 ) {
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
