@@ -9,45 +9,53 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.collections.emptyList
 
 class InventarioViewModel(
     private val repository: AutoRepository = AutoRepository()
-): ViewModel()  {
+) : ViewModel() {
+
     private val _autos = MutableStateFlow<List<Auto>>(emptyList())
     val autos: StateFlow<List<Auto>> = _autos.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private var ListenerAutos: ListenerRegistration? = null
-
     private val _autoSeleccionado = MutableStateFlow<Auto?>(null)
     val autoSeleccionado: StateFlow<Auto?> = _autoSeleccionado.asStateFlow()
 
-    fun seleccionarAuto(auto: Auto) {
-        _autoSeleccionado.value = auto
-    }
+    private var listenerAutos: ListenerRegistration? = null
 
     init {
         cargarInventario()
     }
 
+    fun seleccionarAuto(auto: Auto) {
+        _autoSeleccionado.value = auto
+    }
+
     private fun cargarInventario() {
+
+        listenerAutos?.remove()
+
+        _isLoading.value = true
+
         viewModelScope.launch {
-            _isLoading.value = true
-            repository.iniciarInventario {
-                ListenerAutos = repository.obtenerAutos { lista ->
-                    _autos.value = lista
-                    _isLoading.value = false
+            try {
+                repository.iniciarInventario {
+                    listenerAutos = repository.obtenerAutos { lista ->
+                        _autos.value = lista
+                        _isLoading.value = false
+                    }
                 }
+            } catch (e: Exception) {
+                _isLoading.value = false
             }
         }
     }
 
-    override fun onCleared(){
+    override fun onCleared() {
         super.onCleared()
-        ListenerAutos?.remove()
+        listenerAutos?.remove()
+        listenerAutos = null
     }
-
 }

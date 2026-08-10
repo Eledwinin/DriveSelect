@@ -1,7 +1,10 @@
 package com.example.driveselect.ui.modulos.login
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.example.driveselect.data.firebase.FirebaseService
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -81,4 +84,24 @@ class LoginViewModel : ViewModel() {
                 _errorMessage.value = "Error con Google: ${exception.localizedMessage}"
             }
     }
+
+    fun cerrarSesion(context: Context, onCompleto: () -> Unit) {
+        try {
+            // cierra sesion en firebase
+            auth.signOut()
+
+            // esto desvincula la cuenta de google actual
+            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+            val googleSignInClient = GoogleSignIn.getClient(context, gso)
+            googleSignInClient.signOut().addOnCompleteListener {
+
+                _errorMessage.value = null
+                _isLoading.value = false
+                onCompleto()
+            }
+        } catch (e: Exception) {
+            _errorMessage.value = "Error al cerrar sesión: ${e.localizedMessage}"
+        }
+    }
 }
+

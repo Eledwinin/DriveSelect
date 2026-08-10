@@ -3,8 +3,10 @@ package com.example.driveselect.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -14,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.ui.modulos.alquiler.AlquilerScreen
 import com.example.driveselect.ui.modulos.alquiler.AlquilerViewModel
@@ -27,6 +30,9 @@ import com.example.driveselect.ui.modulos.login.LoginScreen
 import com.example.driveselect.ui.modulos.login.LoginViewModel
 import com.example.driveselect.ui.modulos.login.OlvideClaveScreen
 import com.example.driveselect.ui.modulos.login.RegisterScreen
+import com.example.driveselect.ui.modulos.perfil.PerfilScreen
+import com.example.driveselect.ui.modulos.perfil.PerfilViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun AppNavigation(
@@ -34,13 +40,11 @@ fun AppNavigation(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val rolUsuario by authViewModel.rol.collectAsState()
-    val inventarioViewModel: InventarioViewModel = viewModel()
 
-    // Pestañas según el rol
     val itemsBarra = if (rolUsuario == "admin") {
-        listOf(Rutas.Gestion, Rutas.Inventario)
+        listOf(Rutas.Gestion, Rutas.Inventario, Rutas.Perfil)
     } else {
-        listOf(Rutas.Inventario, Rutas.Historial)
+        listOf(Rutas.Inventario, Rutas.Historial, Rutas.Perfil)
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -48,7 +52,7 @@ fun AppNavigation(
 
     Scaffold(
         bottomBar = {
-            if (rutaActual in listOf(Rutas.Inventario.ruta, Rutas.Historial.ruta, Rutas.Gestion.ruta)) {
+            if (rutaActual in listOf(Rutas.Inventario.ruta, Rutas.Historial.ruta, Rutas.Gestion.ruta, Rutas.Perfil.ruta)) {
                 NavigationBar(
                     containerColor = Color(0xFF13141C),
                     contentColor = Color.White
@@ -60,10 +64,10 @@ fun AppNavigation(
                             onClick = {
                                 navController.navigate(item.ruta) {
                                     popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                        inclusive = false
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
+                                    restoreState = false
                                 }
                             },
                             label = {
@@ -94,7 +98,10 @@ fun AppNavigation(
             modifier = Modifier.padding(innerPadding)
         ) {
             // CATÁLOGO DE AUTOS
-            composable(Rutas.Inventario.ruta) {
+            composable(Rutas.Inventario.ruta) { backStackEntry ->
+                // ViewModel vinculado a esta entrada de navegación
+                val inventarioViewModel: InventarioViewModel = viewModel(backStackEntry)
+
                 AutoListScreen(
                     viewModel = inventarioViewModel,
                     esAdmin = (rolUsuario == "admin"),
@@ -112,17 +119,30 @@ fun AppNavigation(
                 )
             }
 
-            //esto es para el login
+            // LOGIN
             composable(Rutas.Login.ruta) {
                 val loginViewModel: LoginViewModel = viewModel()
+
                 LoginScreen(
                     viewModel = loginViewModel,
                     onLoginExitoso = {
-                        authViewModel.obtenerRolUsuario() // Refresca el rol en el AuthViewModel
-                        val destino = if (rolUsuario == "admin") Rutas.Gestion.ruta else Rutas.Inventario.ruta
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid
+                        if (uid != null) {
+                            FirebaseService.db.collection("usuarios").document(uid).get()
+                                .addOnSuccessListener { doc ->
+                                    val rol = doc.getString("rol") ?: "cliente"
+                                    authViewModel.obtenerRolUsuario()
 
-                        navController.navigate(destino) {
-                            popUpTo(Rutas.Login.ruta) { inclusive = true } // elimina la pantalla de inicio de sesión
+                                    val destino = if (rol == "admin") Rutas.Gestion.ruta else Rutas.Inventario.ruta
+                                    navController.navigate(destino) {
+                                        popUpTo(Rutas.Login.ruta) { inclusive = true }
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    navController.navigate(Rutas.Inventario.ruta) {
+                                        popUpTo(Rutas.Login.ruta) { inclusive = true }
+                                    }
+                                }
                         }
                     },
                     onIrARegistro = {
@@ -134,7 +154,7 @@ fun AppNavigation(
                 )
             }
 
-            //para el registrar
+            // REGISTRO
             composable(Rutas.Registro.ruta) {
                 RegisterScreen(
                     onRegistroExitoso = {
@@ -148,7 +168,7 @@ fun AppNavigation(
                 )
             }
 
-            //para el olvide mi contra
+            // OLVIDÉ CONTRASEÑA
             composable(Rutas.OlvideClave.ruta) {
                 OlvideClaveScreen(
                     onCorreoEnviadoExito = {
@@ -165,17 +185,27 @@ fun AppNavigation(
                 if (rolUsuario == "admin") {
                     navController.navigate(Rutas.Gestion.ruta)
                 } else {
+
+                    val inventarioEntry = remember(it) {
+                        navController.getBackStackEntry(Rutas.Inventario.ruta)
+                    }
+                    val inventarioViewModel: InventarioViewModel = viewModel(inventarioEntry)
                     val alquilerViewModel: AlquilerViewModel = viewModel()
+
                     val autoSeleccionado by inventarioViewModel.autoSeleccionado.collectAsState()
 
-                    autoSeleccionado?.let { auto: Auto ->
+                    if (autoSeleccionado != null) {
                         AlquilerScreen(
-                            auto = auto,
+                            auto = autoSeleccionado!!,
                             viewModel = alquilerViewModel,
                             onReservaExitosa = {
                                 navController.popBackStack()
                             }
                         )
+                    } else {
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                        }
                     }
                 }
             }
@@ -204,6 +234,19 @@ fun AppNavigation(
                 }
             }
 
+            // PERFIL
+            composable(Rutas.Perfil.ruta) {
+                val perfilViewModel: PerfilViewModel = viewModel()
+
+                PerfilScreen(
+                    viewModel = perfilViewModel,
+                    onCerrarSesion = {
+                        navController.navigate(Rutas.Login.ruta) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }

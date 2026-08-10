@@ -1,18 +1,36 @@
 package com.example.driveselect.ui.modulos.alquiler
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.data.repository.AutoRepository
 import com.example.driveselect.funciones.Calculos
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class AlquilerViewModel(
     private val repository: AutoRepository = AutoRepository()
 ): ViewModel() {
+
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+
+    var telefonoInput by mutableStateOf("")
+    var duiInput by mutableStateOf("")
+
+    var mostrarDialogoDatos by mutableStateOf(false)
+    var isGuardandoDatos by mutableStateOf(false)
+    var errorDatos by mutableStateOf<String?>(null)
+
     fun procesarReserva(
         auto: Auto,
-        usuarioId: String, // <-- ID del usuario autenticado en Firebase
+        usuarioId: String,
         nombreCliente: String,
         telefonoCliente: String,
         duiCliente: String,
@@ -51,4 +69,56 @@ class AlquilerViewModel(
             }
         }
     }
+    // verifica si al usuario le faltan datos en Firestore
+    fun verificarDatosYProcesar(onListoParaReservar: () -> Unit) {
+        val uid = auth.currentUser?.uid ?: return
+
+        viewModelScope.launch {
+            try {
+                val doc = FirebaseService.db.collection("usuarios").document(uid).get().await()
+                val telefono = doc.getString("telefono") ?: ""
+                val dui = doc.getString("dui") ?: ""
+
+                if (telefono.isBlank() || dui.isBlank()) {
+                    telefonoInput = telefono
+                    duiInput = dui
+                    mostrarDialogoDatos = true
+                } else {
+                    onListoParaReservar()
+                }
+            } catch (e: Exception) {
+
+            }
+        }
+    }
+
+    // Guarda DUI y Teléfono en Firestore
+    fun guardarDatosCliente(onExito: () -> Unit) {
+        if (telefonoInput.isBlank() || duiInput.isBlank()) {
+            errorDatos = "Por favor completa ambos campos"
+            return
+        }
+
+        val uid = auth.currentUser?.uid ?: return
+        isGuardandoDatos = true
+        errorDatos = null
+
+        viewModelScope.launch {
+            try {
+                val updates = mapOf(
+                    "telefono" to telefonoInput.trim(),
+                    "dui" to duiInput.trim()
+                )
+                FirebaseService.db.collection("usuarios").document(uid).update(updates).await()
+
+                isGuardandoDatos = false
+                mostrarDialogoDatos = false
+                onExito()
+            } catch (e: Exception) {
+                isGuardandoDatos = false
+                errorDatos = e.localizedMessage ?: "Error al guardar información"
+            }
+        }
+    }
+
 }

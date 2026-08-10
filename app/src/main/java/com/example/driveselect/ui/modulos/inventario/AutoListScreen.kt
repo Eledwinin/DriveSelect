@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,15 +22,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.driveselect.R
+import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.funciones.Calculos
 import com.example.driveselect.ui.theme.*
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +51,15 @@ fun AutoListScreen(
 
     // ESTADO LOCAL PARA EL TEXTO DE BÚSQUEDA
     var searchText by remember { mutableStateOf("") }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    // ESTADOS PARA EL MODAL DE DATOS FALTANTES
+    var mostrarModalDatos by remember { mutableStateOf(false) }
+    var autoPendienteReserva by remember { mutableStateOf<Auto?>(null) }
+
+    var telefonoInput by remember { mutableStateOf("") }
+    var duiInput by remember { mutableStateOf("") }
+    var isGuardandoDatos by remember { mutableStateOf(false) }
 
     // FILTRADO DINÁMICO
     val autosFiltrados = remember(autos, searchText) {
@@ -58,6 +71,28 @@ fun AutoListScreen(
                         auto.modelo.contains(searchText, ignoreCase = true)
             }
         }
+    }
+
+    fun validarYProceder(auto: Auto) {
+        val uid = currentUser?.uid ?: return
+
+        FirebaseService.db.collection("usuarios").document(uid).get()
+            .addOnSuccessListener { doc ->
+                val tel = doc.getString("telefono") ?: ""
+                val dui = doc.getString("dui") ?: ""
+
+                if (tel.isBlank() || dui.isBlank()) {
+                    autoPendienteReserva = auto
+                    telefonoInput = tel
+                    duiInput = dui
+                    mostrarModalDatos = true
+                } else {
+                    onReservarClick(auto)
+                }
+            }
+            .addOnFailureListener {
+                onReservarClick(auto)
+            }
     }
 
     Column(
@@ -89,24 +124,6 @@ fun AutoListScreen(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
-                )
-            }
-
-            // BOTÓN ACCESO ADMIN
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(30.dp))
-                    .background(
-                        Brush.horizontalGradient(listOf(GoldLight, GoldPrimary, GoldDark))
-                    )
-                    .clickable { onGestionClick() }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = "SOLICITUDES",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 10.sp
                 )
             }
         }
@@ -181,7 +198,7 @@ fun AutoListScreen(
                     AutoCardItem(
                         auto = auto,
                         onCardClick = { autoDetalle = auto },
-                        onReservarClick = { onReservarClick(auto) }
+                        onReservarClick = { validarYProceder(auto) }
                     )
                 }
             }
@@ -200,11 +217,115 @@ fun AutoListScreen(
                 auto = auto,
                 onReservarClick = {
                     val autoAProcesar = auto
-                    autoDetalle = null // Cerrar modal
-                    onReservarClick(autoAProcesar) // Ir a alquiler
+                    autoDetalle = null
+                    validarYProceder(autoAProcesar)
                 }
             )
         }
+    }
+
+    // MODAL DE COMPLETAR INFORMACIÓN DEL CLIENTE
+    if (mostrarModalDatos) {
+        AlertDialog(
+            onDismissRequest = { mostrarModalDatos = false },
+            containerColor = SurfaceCard,
+            title = {
+                Text(
+                    text = "Completa tu información/Atualiza tu perfil",
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Para continuar con la reserva requerimos tu teléfono y número de DUI.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = telefonoInput,
+                        onValueChange = { nuevoTexto ->
+                            // Solo permite caracteres numéricos y máximo 8 dígitos
+                            if (nuevoTexto.all { it.isDigit() } && nuevoTexto.length <= 8) {
+                                telefonoInput = nuevoTexto
+                            }
+                        },
+                        label = { Text("Teléfono de Contacto", color = TextSecondary) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = duiInput,
+                        onValueChange = { duiInput = it },
+                        label = { Text("Número de DUI", color = TextSecondary) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uid = currentUser?.uid ?: ""
+                        if (telefonoInput.isNotBlank() && duiInput.isNotBlank() && uid.isNotBlank()) {
+                            isGuardandoDatos = true
+
+                            val updates = mapOf(
+                                "telefono" to telefonoInput.trim(),
+                                "dui" to duiInput.trim()
+                            )
+
+                            FirebaseService.db.collection("usuarios").document(uid).update(updates)
+                                .addOnSuccessListener {
+                                    isGuardandoDatos = false
+                                    mostrarModalDatos = false
+                                    autoPendienteReserva?.let { auto ->
+                                        onReservarClick(auto)
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    isGuardandoDatos = false
+                                }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                    enabled = !isGuardandoDatos && telefonoInput.isNotBlank() && duiInput.isNotBlank()
+                ) {
+                    if (isGuardandoDatos) {
+                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(16.dp))
+                    } else {
+                        Text("GUARDAR Y CONTINUAR", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarModalDatos = false }) {
+                    Text("CANCELAR", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
@@ -249,7 +370,7 @@ fun AutoCardItem(
             .fillMaxWidth()
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(18.dp), spotColor = Color.Black)
             .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(18.dp))
-            .clickable { onCardClick() }, // CLIC EN TODA LA TARJETA
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceCard)
     ) {
@@ -464,7 +585,7 @@ private fun ModalDetalleAutoContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // FICHA TÉCNICA (MOTOR Y ESTADO TRADUCIDO DE FIRESTORE)
+        // FICHA TÉCNICA
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -472,7 +593,6 @@ private fun ModalDetalleAutoContent(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // MUESTRA EL MOTOR DIRECTAMENTE DESDE LA DB
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -489,7 +609,6 @@ private fun ModalDetalleAutoContent(
 
             HorizontalDivider(color = BorderSubtle, thickness = 0.5.dp)
 
-            // ESTADO DEL VEHÍCULO
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

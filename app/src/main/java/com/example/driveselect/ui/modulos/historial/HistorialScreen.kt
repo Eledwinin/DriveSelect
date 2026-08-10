@@ -36,7 +36,7 @@ fun HistorialScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0F0F14))
-            .padding(1.dp)
+            .padding(10.dp)
     ) {
         Text(
             text = "MIS SOLICITUDES Y RENTAS",

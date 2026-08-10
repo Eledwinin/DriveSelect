@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.funciones.Calculos
 import com.example.driveselect.ui.theme.*
@@ -41,22 +44,44 @@ fun AlquilerScreen(
     viewModel: AlquilerViewModel,
     onReservaExitosa: () -> Unit
 ) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
 
-    var nombreCliente by remember { mutableStateOf("") }
+    // CAMPOS AUTO-COMPLETADOS DESDE FIRESTORE
+    var nombreCliente by remember { mutableStateOf(currentUser?.displayName ?: "") }
+    var correoCliente by remember { mutableStateOf(currentUser?.email ?: "") }
     var telefonoCliente by remember { mutableStateOf("") }
-    var correoCliente by remember { mutableStateOf("") }
     var documentoCliente by remember { mutableStateOf("") }
     var licenciaCliente by remember { mutableStateOf("") }
 
-    // las fechas son en milisegundos
+    // Cargar datos guardados del perfil (si existen en Firestore)
+    LaunchedEffect(currentUser?.uid) {
+        currentUser?.uid?.let { uid ->
+            FirebaseService.db.collection("usuarios").document(uid).get()
+                .addOnSuccessListener { doc ->
+                    if (doc.exists()) {
+                        val nom = doc.getString("nombre") ?: ""
+                        val tel = doc.getString("telefono") ?: ""
+                        val dui = doc.getString("dui") ?: ""
+                        val lic = doc.getString("licencia") ?: ""
+
+                        if (nom.isNotBlank()) nombreCliente = nom
+                        if (tel.isNotBlank()) telefonoCliente = tel
+                        if (dui.isNotBlank()) documentoCliente = dui
+                        if (lic.isNotBlank()) licenciaCliente = lic
+                    }
+                }
+        }
+    }
+
+    // Fechas en milisegundos
     var fechaInicio by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var fechaFin by remember { mutableLongStateOf(System.currentTimeMillis() + (86400000L * 2)) } // +2 días por defecto
+    var fechaFin by remember { mutableLongStateOf(System.currentTimeMillis() + (86400000L * 2)) }
 
     var mostrarDatePickerInicio by remember { mutableStateOf(false) }
     var mostrarDatePickerFin by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // calculos
+    // Cálculos
     val diasTotales = remember(fechaInicio, fechaFin) {
         Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
     }
@@ -68,7 +93,8 @@ fun AlquilerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .padding(20.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         // ENCABEZADO
         Text(
@@ -90,7 +116,7 @@ fun AlquilerScreen(
             fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // FORMULARIO
         Card(
@@ -115,13 +141,13 @@ fun AlquilerScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // telefono
+                // Teléfono
                 OutlinedTextField(
                     value = telefonoCliente,
                     onValueChange = { telefonoCliente = it },
-                    label = { Text("Teléfono de Contacto", color = TextSecondary) },
+                    label = { Text("Teléfono", color = TextSecondary) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GoldPrimary,
@@ -135,11 +161,11 @@ fun AlquilerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // correo
+                // Correo
                 OutlinedTextField(
                     value = correoCliente,
                     onValueChange = { correoCliente = it },
-                    label = { Text("Correo Electrónico", color = TextSecondary) },
+                    label = { Text("Correo", color = TextSecondary) },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = GoldPrimary,
@@ -153,7 +179,7 @@ fun AlquilerScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // dui / licencia
+                // DUI y Licencia
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = documentoCliente,
@@ -183,55 +209,53 @@ fun AlquilerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // selector Fecha Inicio
+                // Selector Fecha Inicio
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
                         .clickable { mostrarDatePickerInicio = true }
-                        .padding(14.dp)
+                        .padding(12.dp)
                 ) {
                     Text("FECHA PARA RECOGER", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = Calculos.formatearFecha(fechaInicio),
                         color = TextPrimary,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // selector Fecha entrega
+                // Selector Fecha Devolución
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                         .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
                         .clickable { mostrarDatePickerFin = true }
-                        .padding(14.dp)
+                        .padding(12.dp)
                 ) {
                     Text("FECHA DE DEVOLUCIÓN", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = Calculos.formatearFecha(fechaFin),
                         color = TextPrimary,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Divider(color = BorderSubtle, thickness = 1.dp)
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Resumen de Cálculo
+                // Resumen
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -240,7 +264,7 @@ fun AlquilerScreen(
                     Text("$diasTotales día(s)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -251,27 +275,36 @@ fun AlquilerScreen(
                     Text(
                         text = Calculos.formatearMoneda(costoTotal),
                         color = GoldPrimary,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // BOTÓN CONFIRMAR RESERVA
         Button(
             onClick = {
-                if (nombreCliente.isNotBlank()) {
+                val currentUserId = currentUser?.uid ?: ""
+
+                if (nombreCliente.isNotBlank() && telefonoCliente.isNotBlank() && documentoCliente.isNotBlank()) {
                     isLoading = true
 
-                    // Se obtiene el UID del usuario en Firebase Auth
-                    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                    if (currentUserId.isNotBlank()) {
+                        val datosUsuario = mapOf(
+                            "telefono" to telefonoCliente.trim(),
+                            "dui" to documentoCliente.trim(),
+                            "licencia" to licenciaCliente.trim()
+                        )
+                        FirebaseService.db.collection("usuarios").document(currentUserId).update(datosUsuario)
+                    }
+
 
                     viewModel.procesarReserva(
                         auto = auto,
-                        usuarioId = currentUserId, // <-- UID enviado al ViewModel
+                        usuarioId = currentUserId,
                         nombreCliente = nombreCliente,
                         telefonoCliente = telefonoCliente,
                         duiCliente = documentoCliente,
@@ -286,7 +319,7 @@ fun AlquilerScreen(
                     )
                 }
             },
-            enabled = !isLoading && nombreCliente.isNotBlank(),
+            enabled = !isLoading && nombreCliente.isNotBlank() && telefonoCliente.isNotBlank() && documentoCliente.isNotBlank(),
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             contentPadding = PaddingValues(0.dp),
             shape = RoundedCornerShape(12.dp),

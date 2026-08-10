@@ -16,4 +16,6 @@ sealed class Rutas(val ruta: String, val titulo: String, val icono: ImageVector)
     object Login : Rutas("login", "Login", Icons.Default.Login)
     object Registro : Rutas("registro", "Registro", Icons.Default.PersonAdd)
     object OlvideClave : Rutas("olvideClave", "Olvide mi clave", Icons.Default.PersonAdd)
+    object Perfil : Rutas("perfil", "Perfil", Icons.Default.PersonAdd)
+
 }
