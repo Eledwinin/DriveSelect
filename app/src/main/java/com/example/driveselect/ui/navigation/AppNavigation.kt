@@ -22,6 +22,11 @@ import com.example.driveselect.ui.modulos.gestion.GestionViewModel
 import com.example.driveselect.ui.modulos.historial.HistorialScreen
 import com.example.driveselect.ui.modulos.inventario.AutoListScreen
 import com.example.driveselect.ui.modulos.inventario.InventarioViewModel
+import com.example.driveselect.ui.modulos.login.AuthViewModel
+import com.example.driveselect.ui.modulos.login.LoginScreen
+import com.example.driveselect.ui.modulos.login.LoginViewModel
+import com.example.driveselect.ui.modulos.login.OlvideClaveScreen
+import com.example.driveselect.ui.modulos.login.RegisterScreen
 
 @Composable
 fun AppNavigation(
@@ -85,7 +90,7 @@ fun AppNavigation(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (rolUsuario == "admin") Rutas.Gestion.ruta else Rutas.Inventario.ruta,
+            startDestination = Rutas.Login.ruta,
             modifier = Modifier.padding(innerPadding)
         ) {
             // CATÁLOGO DE AUTOS
@@ -103,6 +108,54 @@ fun AppNavigation(
                         if (rolUsuario == "admin") {
                             navController.navigate(Rutas.Gestion.ruta)
                         }
+                    }
+                )
+            }
+
+            //esto es para el login
+            composable(Rutas.Login.ruta) {
+                val loginViewModel: LoginViewModel = viewModel()
+                LoginScreen(
+                    viewModel = loginViewModel,
+                    onLoginExitoso = {
+                        authViewModel.obtenerRolUsuario() // Refresca el rol en el AuthViewModel
+                        val destino = if (rolUsuario == "admin") Rutas.Gestion.ruta else Rutas.Inventario.ruta
+
+                        navController.navigate(destino) {
+                            popUpTo(Rutas.Login.ruta) { inclusive = true } // elimina la pantalla de inicio de sesión
+                        }
+                    },
+                    onIrARegistro = {
+                        navController.navigate(Rutas.Registro.ruta)
+                    },
+                    onOlvideClaveClick = {
+                        navController.navigate(Rutas.OlvideClave.ruta)
+                    }
+                )
+            }
+
+            //para el registrar
+            composable(Rutas.Registro.ruta) {
+                RegisterScreen(
+                    onRegistroExitoso = {
+                        navController.navigate(Rutas.Login.ruta) {
+                            popUpTo(Rutas.Registro.ruta) { inclusive = true }
+                        }
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            //para el olvide mi contra
+            composable(Rutas.OlvideClave.ruta) {
+                OlvideClaveScreen(
+                    onCorreoEnviadoExito = {
+                        navController.popBackStack()
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
                     }
                 )
             }
@@ -150,6 +203,7 @@ fun AppNavigation(
                     )
                 }
             }
+
         }
     }
 }

@@ -61,6 +61,8 @@ dependencies {
     // Dependencia de Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    implementation("com.google.firebase:firebase-auth-ktx")
+
     implementation("io.coil-kt:coil-compose:2.6.0")
 
     //este gestiona las versiones de Firebase automáticamente
@@ -74,4 +76,7 @@ dependencies {
     //Permite convertir las tareas asíncronas tradicionales de Firebase (que usan listeners/callbacks)
     // en funciones suspendidas limpias usando .await()
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+
+    //esto es para el login con google
+    implementation("com.google.android.gms:play-services-auth:21.0.0")
 }

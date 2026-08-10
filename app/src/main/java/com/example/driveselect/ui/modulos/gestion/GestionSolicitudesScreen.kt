@@ -35,7 +35,7 @@ fun GestionSolicitudesScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .padding(16.dp)
+            .padding(top = 5.dp)
     ) {
         // ENCABEZADO
         Text(

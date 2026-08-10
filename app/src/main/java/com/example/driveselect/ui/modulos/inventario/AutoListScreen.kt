@@ -64,7 +64,8 @@ fun AutoListScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .padding(horizontal = 18.dp, vertical = 20.dp)
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 18.dp)
     ) {
         // ENCABEZADO
         Row(
@@ -173,10 +174,13 @@ fun AutoListScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
-                items(autosFiltrados, key = { it.id }) { auto ->
+                items(
+                    items = autosFiltrados,
+                    key = { auto -> auto.id.ifEmpty { auto.hashCode().toString() } }
+                ) { auto ->
                     AutoCardItem(
                         auto = auto,
-                        onCardClick = { autoDetalle = auto }, // ABRE EL MODAL AL HACER CLIC EN LA TARJETA
+                        onCardClick = { autoDetalle = auto },
                         onReservarClick = { onReservarClick(auto) }
                     )
                 }
