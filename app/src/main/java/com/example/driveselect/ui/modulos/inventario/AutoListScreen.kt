@@ -2,6 +2,7 @@ package com.example.driveselect.ui.modulos.inventario
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,14 +62,38 @@ fun AutoListScreen(
     var duiInput by remember { mutableStateOf("") }
     var isGuardandoDatos by remember { mutableStateOf(false) }
 
+    // ESTADOS PARA EL FILTRO DE FECHAS
+    var mostrarPickerInicioFiltro by remember { mutableStateOf(false) }
+    var mostrarPickerFinFiltro by remember { mutableStateOf(false) }
+
+    var fechaInicioTemp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var fechaFinTemp by remember { mutableLongStateOf(System.currentTimeMillis() + (86400000L * 2)) }
+
     // FILTRADO DINÁMICO
-    val autosFiltrados = remember(autos, searchText) {
-        if (searchText.isBlank()) {
-            autos
-        } else {
-            autos.filter { auto ->
-                auto.marca.contains(searchText, ignoreCase = true) ||
-                        auto.modelo.contains(searchText, ignoreCase = true)
+    val autosFiltrados = remember(
+        autos,
+        searchText,
+        viewModel.fechaInicioFiltro,
+        viewModel.fechaFinFiltro,
+        viewModel.idsAutosOcupados
+    ) {
+        autos.filter { auto ->
+            // filtro de búsqueda por texto
+            val coincideTexto = searchText.isBlank() ||
+                    auto.marca.contains(searchText, ignoreCase = true) ||
+                    auto.modelo.contains(searchText, ignoreCase = true)
+
+            // revisa si hay un filtro de fechas activo en este momento
+            val hayFiltroFechaActivo = viewModel.fechaInicioFiltro != null && viewModel.fechaFinFiltro != null
+
+            if (hayFiltroFechaActivo) {
+                // solo mostrar carros disponibles Y que no estén ocupados en ese rango
+                val libreEnFechas = viewModel.autoEstaDisponibleEnRango(auto.id)
+                val esEstadoDisponible = auto.estado == AutoEstado.DISPONIBLE.displayName
+
+                coincideTexto && libreEnFechas && esEstadoDisponible
+            } else {
+                coincideTexto
             }
         }
     }
@@ -107,65 +132,116 @@ fun AutoListScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Catálogo",
                     color = TextPrimary,
-                    fontSize = 24.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-0.5).sp
                 )
                 Text(
                     text = "FLOTA VIP (${autosFiltrados.size} DE ${autos.size})",
                     color = TextSecondary,
-                    fontSize = 11.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
             }
-        }
 
-        // BUSCADOR EN EL ENCABEZADO
-        OutlinedTextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            placeholder = {
-                Text(
-                    text = "Buscar por marca o modelo...",
-                    color = TextSecondary,
-                    fontSize = 13.sp
-                )
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SurfaceCard,
-                unfocusedContainerColor = SurfaceCard,
-                focusedBorderColor = GoldPrimary,
-                unfocusedBorderColor = BorderSubtle,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
-            ),
-            trailingIcon = {
-                if (searchText.isNotEmpty()) {
+            // BUSCADOR
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                placeholder = {
                     Text(
-                        text = "✕",
+                        text = "Buscar...",
                         color = TextSecondary,
-                        modifier = Modifier
-                            .clickable { searchText = "" }
-                            .padding(8.dp)
+                        fontSize = 12.sp
                     )
-                } else {
-                    Text(text = "🔍", fontSize = 14.sp)
-                }
-            },
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = SurfaceCard,
+                    unfocusedContainerColor = SurfaceCard,
+                    focusedBorderColor = GoldPrimary,
+                    unfocusedBorderColor = BorderSubtle,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
+                ),
+                trailingIcon = {
+                    if (searchText.isNotEmpty()) {
+                        Text(
+                            text = "✕",
+                            color = TextSecondary,
+                            modifier = Modifier
+                                .clickable { searchText = "" }
+                                .padding(5.dp)
+                        )
+                    } else {
+                        Text(text = "🔍", fontSize = 12.sp)
+                    }
+                },
+                modifier = Modifier
+                    .weight(2f)
+                    .height(54.dp)
+            )
+        }
+        Text(
+            text = "Filtrar por fecha",
+            color = GoldPrimary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+
+        // BARRA DE FILTRO POR FECHAS
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(
+                onClick = { mostrarPickerInicioFiltro = true },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                border = BorderStroke(1.dp, if (viewModel.fechaInicioFiltro != null) GoldPrimary else BorderSubtle)
+            ) {
+                Text(
+                    text = if (viewModel.fechaInicioFiltro != null) Calculos.formatearFecha(viewModel.fechaInicioFiltro!!) else "Desde",
+                    fontSize = 11.sp
+                )
+            }
+
+            OutlinedButton(
+                onClick = { mostrarPickerFinFiltro = true },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                border = BorderStroke(1.dp, if (viewModel.fechaFinFiltro != null) GoldPrimary else BorderSubtle)
+            ) {
+                Text(
+                    text = if (viewModel.fechaFinFiltro != null) Calculos.formatearFecha(viewModel.fechaFinFiltro!!) else "Hasta",
+                    fontSize = 11.sp
+                )
+            }
+
+            if (viewModel.fechaInicioFiltro != null) {
+                IconButton(
+                    onClick = { viewModel.limpiarFiltroFechas() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Text("✕", color = StatusRedGlow, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
 
         // LISTA DE AUTOS
         if (isLoading) {
@@ -181,7 +257,7 @@ fun AutoListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No se encontraron vehículos",
+                    text = "No se encontraron vehículos disponibles",
                     color = TextSecondary,
                     fontSize = 14.sp
                 )
@@ -203,6 +279,47 @@ fun AutoListScreen(
                 }
             }
         }
+    }
+
+    // MODAL FECHA INICIO FILTRO
+    if (mostrarPickerInicioFiltro) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fechaInicioTemp)
+        DatePickerDialog(
+            onDismissRequest = { mostrarPickerInicioFiltro = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { utcMillis ->
+                        val offset = java.util.TimeZone.getDefault().getOffset(utcMillis)
+                        val localMillis = utcMillis - offset
+
+                        fechaInicioTemp = localMillis
+                        if (fechaFinTemp < localMillis) fechaFinTemp = localMillis + 86400000L
+                        viewModel.filtrarPorRangoFechas(localMillis, fechaFinTemp)
+                    }
+                    mostrarPickerInicioFiltro = false
+                }) { Text("Aplicar", color = GoldPrimary) }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    // MODAL FECHA FIN FILTRO
+    if (mostrarPickerFinFiltro) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = fechaFinTemp)
+        DatePickerDialog(
+            onDismissRequest = { mostrarPickerFinFiltro = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { utcMillis ->
+                        val offset = java.util.TimeZone.getDefault().getOffset(utcMillis)
+                        val localMillis = utcMillis - offset
+
+                        fechaFinTemp = localMillis
+                        viewModel.filtrarPorRangoFechas(fechaInicioTemp, localMillis)
+                    }
+                    mostrarPickerFinFiltro = false
+                }) { Text("Aplicar", color = GoldPrimary) }
+            }
+        ) { DatePicker(state = datePickerState) }
     }
 
     // MODAL DE DETALLES DEL VEHÍCULO
@@ -231,7 +348,7 @@ fun AutoListScreen(
             containerColor = SurfaceCard,
             title = {
                 Text(
-                    text = "Completa tu información/Atualiza tu perfil",
+                    text = "Completa tu información",
                     color = TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -249,7 +366,6 @@ fun AutoListScreen(
                     OutlinedTextField(
                         value = telefonoInput,
                         onValueChange = { nuevoTexto ->
-                            // Solo permite caracteres numéricos y máximo 8 dígitos
                             if (nuevoTexto.all { it.isDigit() } && nuevoTexto.length <= 8) {
                                 telefonoInput = nuevoTexto
                             }

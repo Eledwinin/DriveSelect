@@ -351,10 +351,13 @@ fun AlquilerScreen(
             onDismissRequest = { mostrarDatePickerInicio = false },
             confirmButton = {
                 TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { nuevaFecha ->
-                        fechaInicio = nuevaFecha
-                        if (fechaFin < nuevaFecha) {
-                            fechaFin = nuevaFecha + 86400000L
+                    datePickerState.selectedDateMillis?.let { utcMillis ->
+                        val offset = java.util.TimeZone.getDefault().getOffset(utcMillis)
+                        val localMillis = utcMillis - offset
+
+                        fechaInicio = localMillis
+                        if (fechaFin < localMillis) {
+                            fechaFin = localMillis + 86400000L
                         }
                     }
                     mostrarDatePickerInicio = false
@@ -383,8 +386,11 @@ fun AlquilerScreen(
             onDismissRequest = { mostrarDatePickerFin = false },
             confirmButton = {
                 TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { nuevaFecha ->
-                        fechaFin = nuevaFecha
+                    datePickerState.selectedDateMillis?.let { utcMillis ->
+                        val offset = java.util.TimeZone.getDefault().getOffset(utcMillis)
+                        val localMillis = utcMillis - offset
+
+                        fechaFin = localMillis
                     }
                     mostrarDatePickerFin = false
                 }) { Text("Aceptar", color = GoldPrimary) }
