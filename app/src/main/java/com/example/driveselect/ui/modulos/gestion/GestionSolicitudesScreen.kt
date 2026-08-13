@@ -81,7 +81,7 @@ fun GestionSolicitudesScreen(
                 items(solicitudes) { alquiler ->
                     SolicitudCard(
                         alquiler = alquiler,
-                        onAprobar = { viewModel.aprobarReserva(alquiler) },
+                        onEntregar = { viewModel.aprobarReserva(alquiler) },
                         onRechazar = { viewModel.rechazarReserva(alquiler) }
                     )
                 }
@@ -103,7 +103,7 @@ fun GestionSolicitudesScreen(
 @Composable
 fun SolicitudCard(
     alquiler: Alquiler,
-    onAprobar: () -> Unit,
+    onEntregar: () -> Unit,
     onRechazar: () -> Unit
 ) {
     Card(
@@ -133,7 +133,7 @@ fun SolicitudCard(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Divider(color = BorderSubtle, thickness = 1.dp)
+            HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
             Spacer(modifier = Modifier.height(8.dp))
 
             // DATOS CLIENTE
@@ -166,13 +166,14 @@ fun SolicitudCard(
                     Text("RECHAZAR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
+                // Botón ajustado a ENTREGAR VEHÍCULO
                 Button(
-                    onClick = onAprobar,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                    onClick = onEntregar,
+                    modifier = Modifier.weight(1.3f),
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusGreenGlow),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("APROBAR", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("ENTREGAR VEHÍCULO", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }

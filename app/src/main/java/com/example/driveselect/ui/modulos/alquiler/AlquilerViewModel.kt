@@ -44,7 +44,7 @@ class AlquilerViewModel(
         val costo = Calculos.calcularCostoTotal(dias, auto.precioPorDia)
 
         val nuevoAlquiler = Alquiler(
-            usuarioId = usuarioId, // <-- Vinculamos la reserva al cliente
+            usuarioId = usuarioId,
             autoId = auto.id,
             autoMarca = auto.marca,
             autoModelo = auto.modelo,
@@ -63,12 +63,23 @@ class AlquilerViewModel(
         )
 
         repository.registrarAlquiler(nuevoAlquiler) {
-            // Actualiza el estado del auto
-            repository.actualizarEstadoAuto(auto.id, AutoEstado.ALQUILADO_EN_PROCESO) {
+            //verifica si la fecha de inicio es HOY
+            val hoyUtc = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L)
+            val inicioUtc = fechaInicio - (fechaInicio % 86400000L)
+            val esParaHoy = inicioUtc <= hoyUtc
+
+            if (esParaHoy) {
+                // Solo si la reserva empieza hoy cambia el estado en el catálogo a ALQUILADO_EN_PROCESO
+                repository.actualizarEstadoAuto(auto.id, AutoEstado.ALQUILADO_EN_PROCESO) {
+                    onExito()
+                }
+            } else {
+                // Si es para una fecha futura, el auto se mantiene en DISPONIBLE hoy
                 onExito()
             }
         }
     }
+
     // verifica si al usuario le faltan datos en Firestore
     fun verificarDatosYProcesar(onListoParaReservar: () -> Unit) {
         val uid = auth.currentUser?.uid ?: return

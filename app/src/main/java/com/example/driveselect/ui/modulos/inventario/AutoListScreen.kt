@@ -470,14 +470,31 @@ fun AutoCardItem(
         }
     }
 
-    val (colorEstado, textoEstado) = when (auto.estado) {
-        AutoEstado.ALQUILADO_EN_PROCESO.displayName -> Pair(StatusOrangeGlow, "ALQUILADO EN PROCESO")
-        AutoEstado.ALQUILADO_EN_USO.displayName -> Pair(StatusRedGlow, "ALQUILADO EN USO")
-        else -> Pair(StatusGreenGlow, "DISPONIBLE")
+    // EVALUACIÓN DINÁMICA SEGÚN FECHA ACTUAL
+    val (colorEstado, textoEstado) = remember(auto.estado, auto.fechaInicio) {
+        val estadoUpper = auto.estado.uppercase().trim()
+
+        if (estadoUpper == "ALQUILADO EN USO" || estadoUpper == "EN USO") {
+            Pair(StatusRedGlow, "ALQUILADO EN USO")
+        } else if (estadoUpper == "ALQUILADO EN PROCESO" || estadoUpper == "PENDIENTE") {
+            // Verificar si la fecha reservada es HOY
+            val hoyUtc = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L)
+            val inicioUtc = auto.fechaInicio - (auto.fechaInicio % 86400000L)
+
+            // Si la fecha de inicio es HOY o anterior, pasa a NARANJA
+            if (auto.fechaInicio > 0 && inicioUtc <= hoyUtc) {
+                Pair(StatusOrangeGlow, "ALQUILADO EN PROCESO")
+            } else {
+                // Si es para una fecha futura, HOY se muestra DISPONIBLE
+                Pair(StatusGreenGlow, "DISPONIBLE")
+            }
+        } else {
+            Pair(StatusGreenGlow, "DISPONIBLE")
+        }
     }
 
     val borderColor by animateColorAsState(
-        targetValue = if (auto.estado == AutoEstado.ALQUILADO_EN_PROCESO.displayName) StatusOrangeGlow else BorderSubtle,
+        targetValue = if (textoEstado == "ALQUILADO EN PROCESO") StatusOrangeGlow else BorderSubtle,
         animationSpec = tween(durationMillis = 300), label = ""
     )
 
@@ -575,16 +592,7 @@ fun AutoCardItem(
 
             // ACCIONES SEGÚN ESTADO
             Box(contentAlignment = Alignment.Center) {
-                if (auto.estado == AutoEstado.DISPONIBLE.displayName) {
-                    BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
-                } else {
-                    Text(
-                        text = "NO DISPONIBLE",
-                        color = TextSecondary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
             }
         }
     }
@@ -743,25 +751,23 @@ private fun ModalDetalleAutoContent(
         Spacer(modifier = Modifier.height(20.dp))
 
         // BOTÓN RESERVAR SI ESTÁ DISPONIBLE
-        if (auto.estado == AutoEstado.DISPONIBLE.displayName) {
-            Button(
-                onClick = onReservarClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .background(
-                        brush = Brush.horizontalGradient(listOf(GoldLight, GoldPrimary, GoldDark)),
-                        shape = RoundedCornerShape(12.dp)
-                    ),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-            ) {
-                Text(
-                    text = "CONTINUAR A RESERVA",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp
-                )
-            }
+        Button(
+            onClick = onReservarClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .background(
+                    brush = Brush.horizontalGradient(listOf(GoldLight, GoldPrimary, GoldDark)),
+                    shape = RoundedCornerShape(12.dp)
+                ),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+        ) {
+            Text(
+                text = "CONTINUAR A RESERVA",
+                color = Color.Black,
+                fontWeight = FontWeight.Black,
+                fontSize = 12.sp
+            )
         }
     }
 }
