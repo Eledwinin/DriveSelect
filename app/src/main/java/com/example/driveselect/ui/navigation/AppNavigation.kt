@@ -17,7 +17,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.driveselect.data.firebase.FirebaseService
-import com.example.driveselect.data.model.Auto
 import com.example.driveselect.ui.modulos.alquiler.AlquilerScreen
 import com.example.driveselect.ui.modulos.alquiler.AlquilerViewModel
 import com.example.driveselect.ui.modulos.gestion.GestionSolicitudesScreen
@@ -40,8 +39,9 @@ fun AppNavigation(
     authViewModel: AuthViewModel = viewModel()
 ) {
     val rolUsuario by authViewModel.rol.collectAsState()
+    val esAdmin = (rolUsuario == "admin")
 
-    val itemsBarra = if (rolUsuario == "admin") {
+    val itemsBarra = if (esAdmin) {
         listOf(Rutas.Gestion, Rutas.Inventario, Rutas.Perfil)
     } else {
         listOf(Rutas.Inventario, Rutas.Historial, Rutas.Perfil)
@@ -99,22 +99,14 @@ fun AppNavigation(
         ) {
             // CATÁLOGO DE AUTOS
             composable(Rutas.Inventario.ruta) { backStackEntry ->
-                // ViewModel vinculado a esta entrada de navegación
                 val inventarioViewModel: InventarioViewModel = viewModel(backStackEntry)
 
                 AutoListScreen(
                     viewModel = inventarioViewModel,
-                    esAdmin = (rolUsuario == "admin"),
+                    esAdmin = esAdmin,
                     onReservarClick = { auto ->
-                        if (rolUsuario != "admin") {
-                            inventarioViewModel.seleccionarAuto(auto)
-                            navController.navigate(Rutas.Alquiler.ruta)
-                        }
-                    },
-                    onGestionClick = {
-                        if (rolUsuario == "admin") {
-                            navController.navigate(Rutas.Gestion.ruta)
-                        }
+                        inventarioViewModel.seleccionarAuto(auto)
+                        navController.navigate(Rutas.Alquiler.ruta)
                     }
                 )
             }
@@ -180,39 +172,35 @@ fun AppNavigation(
                 )
             }
 
-            // RESERVAR AUTO
+            // RESERVAR AUTO (CLIENTE Y ADMIN)
             composable(Rutas.Alquiler.ruta) {
-                if (rolUsuario == "admin") {
-                    navController.navigate(Rutas.Gestion.ruta)
-                } else {
+                val inventarioEntry = remember(it) {
+                    navController.getBackStackEntry(Rutas.Inventario.ruta)
+                }
+                val inventarioViewModel: InventarioViewModel = viewModel(inventarioEntry)
+                val alquilerViewModel: AlquilerViewModel = viewModel()
 
-                    val inventarioEntry = remember(it) {
-                        navController.getBackStackEntry(Rutas.Inventario.ruta)
-                    }
-                    val inventarioViewModel: InventarioViewModel = viewModel(inventarioEntry)
-                    val alquilerViewModel: AlquilerViewModel = viewModel()
+                val autoSeleccionado by inventarioViewModel.autoSeleccionado.collectAsState()
 
-                    val autoSeleccionado by inventarioViewModel.autoSeleccionado.collectAsState()
-
-                    if (autoSeleccionado != null) {
-                        AlquilerScreen(
-                            auto = autoSeleccionado!!,
-                            viewModel = alquilerViewModel,
-                            onReservaExitosa = {
-                                navController.popBackStack()
-                            }
-                        )
-                    } else {
-                        LaunchedEffect(Unit) {
+                if (autoSeleccionado != null) {
+                    AlquilerScreen(
+                        auto = autoSeleccionado!!,
+                        viewModel = alquilerViewModel,
+                        esAdmin = esAdmin,
+                        onReservaExitosa = {
                             navController.popBackStack()
                         }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
                     }
                 }
             }
 
             // HISTORIAL
             composable(Rutas.Historial.ruta) {
-                if (rolUsuario == "admin") {
+                if (esAdmin) {
                     navController.navigate(Rutas.Gestion.ruta)
                 } else {
                     HistorialScreen()
@@ -221,7 +209,7 @@ fun AppNavigation(
 
             // GESTIÓN DE SOLICITUDES
             composable(Rutas.Gestion.ruta) {
-                if (rolUsuario != "admin") {
+                if (!esAdmin) {
                     navController.navigate(Rutas.Inventario.ruta)
                 } else {
                     val gestionViewModel: GestionViewModel = viewModel()

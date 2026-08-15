@@ -55,7 +55,7 @@ object Calculos {
         val diaEvalMs = calEval.timeInMillis
 
         // bloquea cualquier dia hasta la fecha actual
-        if (diaEvalMs < hoyMs) {
+        if (diaEvalMs <= hoyMs) {
             return true
         }
 

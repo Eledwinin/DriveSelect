@@ -191,7 +191,6 @@ fun SolicitudCard(
         colors = CardDefaults.cardColors(containerColor = SurfaceCard)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            // Indicador lateral discreto de 3dp solo si es para hoy
             if (esParaHoy) {
                 Box(
                     modifier = Modifier

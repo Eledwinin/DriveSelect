@@ -36,6 +36,7 @@ import java.util.TimeZone
 @Composable
 fun AlquilerScreen(
     auto: Auto,
+    esAdmin: Boolean = false,
     viewModel: AlquilerViewModel,
     onReservaExitosa: () -> Unit
 ) {
@@ -61,43 +62,45 @@ fun AlquilerScreen(
     }
 
     // CAMPOS AUTO-COMPLETADOS DESDE FIRESTORE
-    var nombreCliente by remember { mutableStateOf(currentUser?.displayName ?: "") }
-    var correoCliente by remember { mutableStateOf(currentUser?.email ?: "") }
+    var nombreCliente by remember { mutableStateOf(if (esAdmin) "" else (currentUser?.displayName ?: "")) }
+    var correoCliente by remember { mutableStateOf(if (esAdmin) "" else (currentUser?.email ?: "")) }
     var telefonoCliente by remember { mutableStateOf("") }
     var documentoCliente by remember { mutableStateOf("") }
     var licenciaCliente by remember { mutableStateOf("") }
 
-    // Cargar datos guardados del perfil (si existen en Firestore)
-    LaunchedEffect(currentUser?.uid) {
-        currentUser?.uid?.let { uid ->
-            FirebaseService.db.collection("usuarios").document(uid).get()
-                .addOnSuccessListener { doc ->
-                    if (doc.exists()) {
-                        val nom = doc.getString("nombre") ?: ""
-                        val tel = doc.getString("telefono") ?: ""
-                        val dui = doc.getString("dui") ?: ""
-                        val lic = doc.getString("licencia") ?: ""
+    // Cargar datos guardados del perfil
+    LaunchedEffect(currentUser?.uid, esAdmin) {
+        if (!esAdmin) {
+            currentUser?.uid?.let { uid ->
+                FirebaseService.db.collection("usuarios").document(uid).get()
+                    .addOnSuccessListener { doc ->
+                        if (doc.exists()) {
+                            val nom = doc.getString("nombre") ?: ""
+                            val tel = doc.getString("telefono") ?: ""
+                            val dui = doc.getString("dui") ?: ""
+                            val lic = doc.getString("licencia") ?: ""
 
-                        if (nom.isNotBlank()) nombreCliente = nom
-                        if (tel.isNotBlank()) telefonoCliente = tel
-                        if (dui.isNotBlank()) documentoCliente = dui
-                        if (lic.isNotBlank()) licenciaCliente = lic
+                            if (nom.isNotBlank()) nombreCliente = nom
+                            if (tel.isNotBlank()) telefonoCliente = tel
+                            if (dui.isNotBlank()) documentoCliente = dui
+                            if (lic.isNotBlank()) licenciaCliente = lic
+                        }
                     }
-                }
+            }
         }
     }
 
     // varibble para el rango de fechas que esta ocupado el auto
     var rangosOcupados by remember { mutableStateOf<List<Pair<Long, Long>>>(emptyList()) }
 
-    // Carga robusta de rangos ocupados buscando en solicitudes y alquileres
+
     LaunchedEffect(auto.id) {
         if (auto.id.isBlank()) return@LaunchedEffect
 
         try {
             val lista = mutableListOf<Pair<Long, Long>>()
 
-            // 1. Buscar en la colección "solicitudes"
+            // busca en la colección "solicitudes"
             val snapSolicitudes = FirebaseService.db.collection("solicitudes").get().await()
             for (doc in snapSolicitudes.documents) {
                 val idAutoDoc = doc.getString("autoId") ?: doc.getString("idAuto") ?: doc.getString("auto_id") ?: ""
@@ -110,7 +113,7 @@ fun AlquilerScreen(
                 }
             }
 
-            // 2. Buscar en la colección "alquileres" por si acaso
+            // busca en la colección "alquileres"
             val snapAlquileres = FirebaseService.db.collection("alquileres").get().await()
             for (doc in snapAlquileres.documents) {
                 val idAutoDoc = doc.getString("autoId") ?: doc.getString("idAuto") ?: doc.getString("auto_id") ?: ""
@@ -130,8 +133,8 @@ fun AlquilerScreen(
     }
 
     // Fechas en milisegundos
-    var fechaInicio by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var fechaFin by remember { mutableLongStateOf(System.currentTimeMillis() + (86400000L * 2)) }
+    var fechaInicio by remember { mutableLongStateOf(0L) }
+    var fechaFin by remember { mutableLongStateOf(0L) }
 
     var mostrarDatePickerInicio by remember { mutableStateOf(false) }
     var mostrarDatePickerFin by remember { mutableStateOf(false) }
@@ -139,11 +142,20 @@ fun AlquilerScreen(
 
     // Cálculos
     val diasTotales = remember(fechaInicio, fechaFin) {
-        Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
+        if (fechaInicio > 0L && fechaFin > 0L) {
+            Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
+        } else {
+            0
+        }
     }
-    val costoTotal = remember(diasTotales, auto.precioPorDia) {
+
+val costoTotal = remember(diasTotales, auto.precioPorDia) {
+    if (diasTotales > 0) {
         Calculos.calcularCostoTotal(diasTotales, auto.precioPorDia)
+    } else {
+        0.0
     }
+}
 
     // regla para bloquear dias deshabilitados en el calendario
     val reglaFechasDisponibles = remember(rangosOcupados) {
@@ -322,8 +334,8 @@ fun AlquilerScreen(
                     Text("FECHA PARA RECOGER", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = Calculos.formatearFecha(fechaInicio),
-                        color = TextPrimary,
+                        text = if (fechaInicio > 0L) Calculos.formatearFecha(fechaInicio) else "Seleccionar fecha de inicio",
+                        color = if (fechaInicio > 0L) TextPrimary else TextSecondary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -343,8 +355,8 @@ fun AlquilerScreen(
                     Text("FECHA DE DEVOLUCIÓN", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = Calculos.formatearFecha(fechaFin),
-                        color = TextPrimary,
+                        text = if (fechaFin > 0L) Calculos.formatearFecha(fechaFin) else "Seleccionar fecha de devolución",
+                        color = if (fechaInicio > 0L) TextPrimary else TextSecondary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -442,24 +454,42 @@ fun AlquilerScreen(
     // Modal Fecha Inicio
     if (mostrarDatePickerInicio) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = fechaInicio,
+            initialSelectedDateMillis = if (fechaInicio > 0L) fechaInicio else null,
             selectableDates = reglaFechasDisponibles
         )
+
+        val esFechaValida = datePickerState.selectedDateMillis?.let { utcMillis ->
+            reglaFechasDisponibles.isSelectableDate(utcMillis)
+        } ?: false
+
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerInicio = false },
             confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { utcMillis ->
-                        val offset = TimeZone.getDefault().getOffset(utcMillis)
-                        val localMillis = utcMillis - offset
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { utcMillis ->
+                            val offset = TimeZone.getDefault().getOffset(utcMillis)
+                            val localMillis = utcMillis - offset
 
-                        fechaInicio = localMillis
-                        if (fechaFin < localMillis) {
-                            fechaFin = localMillis + 86400000L
+                            fechaInicio = localMillis
+                            if (fechaFin <= localMillis) {
+                                fechaFin = 0L
+                            }
                         }
-                    }
-                    mostrarDatePickerInicio = false
-                }) { Text("Aceptar", color = GoldPrimary) }
+                        mostrarDatePickerInicio = false
+                    },
+                    enabled = esFechaValida
+                ) {
+                    Text(
+                        "Aceptar",
+                        color = if (esFechaValida) GoldPrimary else TextSecondary.copy(alpha = 0.4f)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDatePickerInicio = false }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -469,21 +499,41 @@ fun AlquilerScreen(
     // Modal Fecha Fin
     if (mostrarDatePickerFin) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = fechaFin,
+            initialSelectedDateMillis = if (fechaFin > 0L) fechaFin else null,
             selectableDates = reglaFechasDisponibles
         )
+
+        val esFechaValida = datePickerState.selectedDateMillis?.let { utcMillis ->
+            val offset = TimeZone.getDefault().getOffset(utcMillis)
+            val localMillis = utcMillis - offset
+            reglaFechasDisponibles.isSelectableDate(utcMillis) && (fechaInicio == 0L || localMillis > fechaInicio)
+        } ?: false
+
         DatePickerDialog(
             onDismissRequest = { mostrarDatePickerFin = false },
             confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { utcMillis ->
-                        val offset = TimeZone.getDefault().getOffset(utcMillis)
-                        val localMillis = utcMillis - offset
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { utcMillis ->
+                            val offset = TimeZone.getDefault().getOffset(utcMillis)
+                            val localMillis = utcMillis - offset
 
-                        fechaFin = localMillis
-                    }
-                    mostrarDatePickerFin = false
-                }) { Text("Aceptar", color = GoldPrimary) }
+                            fechaFin = localMillis
+                        }
+                        mostrarDatePickerFin = false
+                    },
+                    enabled = esFechaValida
+                ) {
+                    Text(
+                        "Aceptar",
+                        color = if (esFechaValida) GoldPrimary else TextSecondary.copy(alpha = 0.4f)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarDatePickerFin = false }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
             }
         ) {
             DatePicker(state = datePickerState)

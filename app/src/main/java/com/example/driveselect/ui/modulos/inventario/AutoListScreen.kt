@@ -42,7 +42,6 @@ fun AutoListScreen(
     viewModel: InventarioViewModel,
     esAdmin: Boolean = false,
     onReservarClick: (Auto) -> Unit,
-    onGestionClick: () -> Unit
 ) {
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -99,6 +98,12 @@ fun AutoListScreen(
     }
 
     fun validarYProceder(auto: Auto) {
+        // cuando es admin, el va a llenar todos los datos del user
+        if (esAdmin) {
+            onReservarClick(auto)
+            return
+        }
+
         val uid = currentUser?.uid ?: return
 
         FirebaseService.db.collection("usuarios").document(uid).get()

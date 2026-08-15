@@ -22,10 +22,8 @@ class HistorialViewModel : ViewModel() {
     }
 
     fun cargarHistorialUsuario() {
-        // Mientras no hay pantalla de Login, se usa tu ID como respaldo si currentUser es null
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: "B5wrHWyadq8msloNHbSe"
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
 
-        Log.d("HISTORIAL_DEBUG", "Cargando historial para UID: $uid")
         _isLoading.value = true
 
         FirebaseService.db.collection("alquileres")
@@ -38,27 +36,10 @@ class HistorialViewModel : ViewModel() {
                 }
 
                 if (snapshot != null) {
-                    val listaLimpia = snapshot.documents.map { doc ->
-                        Alquiler(
-                            id = doc.getString("id") ?: doc.id,
-                            usuarioId = doc.getString("usuarioId") ?: "",
-                            autoId = doc.getString("autoId") ?: "",
-                            autoMarca = doc.getString("autoMarca") ?: "",
-                            autoModelo = doc.getString("autoModelo") ?: "",
-                            nombreCliente = doc.getString("nombreCliente") ?: "",
-                            telefonoCliente = doc.getString("telefonoCliente") ?: "",
-                            correoCliente = doc.getString("correoCliente") ?: "",
-                            documentoCliente = doc.getString("documentoCliente") ?: "",
-                            licenciaCliente = doc.getString("licenciaCliente") ?: "",
-                            fechaRecogida = doc.getLong("fechaRecogida") ?: 0L,
-                            fechaEntrega = doc.getLong("fechaEntrega") ?: 0L,
-                            fechaRecogidaTexto = doc.getString("fechaRecogidaTexto") ?: "",
-                            fechaEntregaTexto = doc.getString("fechaEntregaTexto") ?: "",
-                            diasTotales = (doc.getLong("diasTotales") ?: 0L).toInt(),
-                            costoTotal = (doc.get("costoTotal") as? Number)?.toDouble() ?: 0.0,
-                            estado = doc.getString("estado") ?: "pendiente"
-                        )
-                    }
+                    val listaLimpia = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Alquiler::class.java)?.copy(id = doc.id)
+                    }.sortedByDescending { it.fechaRecogida }
+
                     _historial.value = listaLimpia
                 }
                 _isLoading.value = false
