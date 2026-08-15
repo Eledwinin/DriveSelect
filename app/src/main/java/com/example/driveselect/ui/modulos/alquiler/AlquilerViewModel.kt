@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.data.model.Auto
-import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.data.repository.AutoRepository
 import com.example.driveselect.funciones.Calculos
 import com.google.firebase.auth.FirebaseAuth
@@ -62,25 +61,13 @@ class AlquilerViewModel(
             estado = "pendiente"
         )
 
+        // Guarda en Firestore y delega la actualización reactiva al catálogo
         repository.registrarAlquiler(nuevoAlquiler) {
-            //verifica si la fecha de inicio es HOY
-            val hoyUtc = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L)
-            val inicioUtc = fechaInicio - (fechaInicio % 86400000L)
-            val esParaHoy = inicioUtc <= hoyUtc
-
-            if (esParaHoy) {
-                // Solo si la reserva empieza hoy cambia el estado en el catálogo a ALQUILADO_EN_PROCESO
-                repository.actualizarEstadoAuto(auto.id, AutoEstado.ALQUILADO_EN_PROCESO) {
-                    onExito()
-                }
-            } else {
-                // Si es para una fecha futura, el auto se mantiene en DISPONIBLE hoy
-                onExito()
-            }
+            onExito()
         }
     }
 
-    // verifica si al usuario le faltan datos en Firestore
+    // Verifica si al usuario le faltan datos en Firestore
     fun verificarDatosYProcesar(onListoParaReservar: () -> Unit) {
         val uid = auth.currentUser?.uid ?: return
 
@@ -98,7 +85,7 @@ class AlquilerViewModel(
                     onListoParaReservar()
                 }
             } catch (e: Exception) {
-
+                // Manejo de error de lectura
             }
         }
     }
@@ -131,5 +118,4 @@ class AlquilerViewModel(
             }
         }
     }
-
 }

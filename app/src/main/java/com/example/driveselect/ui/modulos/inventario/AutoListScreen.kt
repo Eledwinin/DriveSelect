@@ -470,27 +470,11 @@ fun AutoCardItem(
         }
     }
 
-    // EVALUACIÓN DINÁMICA SEGÚN FECHA ACTUAL
-    val (colorEstado, textoEstado) = remember(auto.estado, auto.fechaInicio) {
-        val estadoUpper = auto.estado.uppercase().trim()
-
-        if (estadoUpper == "ALQUILADO EN USO" || estadoUpper == "EN USO") {
-            Pair(StatusRedGlow, "ALQUILADO EN USO")
-        } else if (estadoUpper == "ALQUILADO EN PROCESO" || estadoUpper == "PENDIENTE") {
-            // Verificar si la fecha reservada es HOY
-            val hoyUtc = System.currentTimeMillis() - (System.currentTimeMillis() % 86400000L)
-            val inicioUtc = auto.fechaInicio - (auto.fechaInicio % 86400000L)
-
-            // Si la fecha de inicio es HOY o anterior, pasa a NARANJA
-            if (auto.fechaInicio > 0 && inicioUtc <= hoyUtc) {
-                Pair(StatusOrangeGlow, "ALQUILADO EN PROCESO")
-            } else {
-                // Si es para una fecha futura, HOY se muestra DISPONIBLE
-                Pair(StatusGreenGlow, "DISPONIBLE")
-            }
-        } else {
-            Pair(StatusGreenGlow, "DISPONIBLE")
-        }
+    // Leemos el estado ya sincronizado por el ViewModel
+    val (colorEstado, textoEstado) = when (auto.estado.uppercase().trim()) {
+        "ALQUILADO EN PROCESO", "ALQUILADO_EN_PROCESO" -> Pair(StatusOrangeGlow, "ALQUILADO EN PROCESO")
+        "ALQUILADO EN USO", "ALQUILADO_EN_USO", "EN USO" -> Pair(StatusRedGlow, "ALQUILADO EN USO")
+        else -> Pair(StatusGreenGlow, "DISPONIBLE")
     }
 
     val borderColor by animateColorAsState(
@@ -590,7 +574,7 @@ fun AutoCardItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // ACCIONES SEGÚN ESTADO
+            // BOTÓN RENTAR
             Box(contentAlignment = Alignment.Center) {
                 BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
             }

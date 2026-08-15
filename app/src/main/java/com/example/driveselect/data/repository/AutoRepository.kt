@@ -60,7 +60,7 @@ class AutoRepository {
                         precioPorDia = doc.getDouble("precioPorDia") ?: 0.0,
                         estado = doc.getString("estado") ?: AutoEstado.DISPONIBLE.displayName,
                         imagenUrl = doc.getString("imagenUrl") ?: "",
-                        motor = doc.getString("motor") ?: "" // <-- Único cambio
+                        motor = doc.getString("motor") ?: "",
                     )
                 } catch (e: Exception) {
                     null

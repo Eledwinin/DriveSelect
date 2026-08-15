@@ -7,7 +7,5 @@ data class Auto(
     val precioPorDia: Double = 0.0,
     val estado: String = AutoEstado.DISPONIBLE.name,
     val imagenUrl: String = "",
-    val motor: String = "",
-    val fechaInicio: Long = 0L,
-    val fechaDevolucion: Long = 0L
+    val motor: String = ""
 )

@@ -42,7 +42,7 @@ object Calculos {
         }
         val hoyMs = calHoy.timeInMillis
 
-        // 2. Convertir la fecha que el DatePicker está evaluando
+        // covnierte la fecha que el DatePicker está evaluando
         val offset = java.util.TimeZone.getDefault().getOffset(utcTimeMillis)
         val fechaEvalLocal = utcTimeMillis - offset
         val calEval = java.util.Calendar.getInstance().apply {
@@ -54,12 +54,12 @@ object Calculos {
         }
         val diaEvalMs = calEval.timeInMillis
 
-        // BLOQUEO 1: Bloquear cualquier día anterior a hoy (1 al 12 de agosto)
+        // bloquea cualquier dia hasta la fecha actual
         if (diaEvalMs < hoyMs) {
             return true
         }
 
-        // BLOQUEO 2: Bloquear cualquier rango ocupado (14 al 20 de agosto)
+        // bloqeua el rango de fechas ocupadas
         return rangosOcupados.any { (inicioMs, finMs) ->
             val calInicio = java.util.Calendar.getInstance().apply {
                 timeInMillis = inicioMs
@@ -77,46 +77,6 @@ object Calculos {
             }
 
             diaEvalMs in calInicio.timeInMillis..calFin.timeInMillis
-        }
-    }
-
-    // Calcula el estado real del auto según la fecha actual
-    fun obtenerEstadoRealAuto(
-        estadoEnFirestore: String,
-        fechaInicioReserva: Long? = null
-    ): String {
-        val estadoUpper = estadoEnFirestore.uppercase().trim()
-
-        // Si el admin ya entregó el auto físicamente (Rojo), se respeta
-        if (estadoUpper == "ALQUILADO EN USO" || estadoUpper == "EN USO") {
-            return "ALQUILADO EN USO"
-        }
-
-        // Si no hay fecha o la reserva no es para hoy, HOY está disponible
-        if (fechaInicioReserva == null) return "DISPONIBLE"
-
-        val calHoy = java.util.Calendar.getInstance().apply {
-            set(java.util.Calendar.HOUR_OF_DAY, 0)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }
-        val hoyMs = calHoy.timeInMillis
-
-        val calInicio = java.util.Calendar.getInstance().apply {
-            timeInMillis = fechaInicioReserva
-            set(java.util.Calendar.HOUR_OF_DAY, 0)
-            set(java.util.Calendar.MINUTE, 0)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }
-        val inicioMs = calInicio.timeInMillis
-
-        // SOLO si la reserva inicia HOY pasa a Naranja ("ALQUILADO EN PROCESO")
-        return if (inicioMs <= hoyMs) {
-            "ALQUILADO EN PROCESO"
-        } else {
-            "DISPONIBLE"
         }
     }
 }

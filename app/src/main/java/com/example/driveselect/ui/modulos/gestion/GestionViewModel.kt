@@ -101,4 +101,9 @@ class GestionViewModel(
             }
         }
     }
+
+
+    fun obtenerSolicitudesOrdenadas(solicitudes: List<Alquiler>): List<Alquiler> {
+        return solicitudes.sortedBy { it.fechaRecogida }
+    }
 }
