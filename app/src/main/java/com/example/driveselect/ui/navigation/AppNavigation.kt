@@ -19,6 +19,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.ui.modulos.alquiler.AlquilerScreen
 import com.example.driveselect.ui.modulos.alquiler.AlquilerViewModel
+import com.example.driveselect.ui.modulos.alquiler.RentaScreen
+import com.example.driveselect.ui.modulos.alquiler.RentaViewModel
 import com.example.driveselect.ui.modulos.gestion.GestionSolicitudesScreen
 import com.example.driveselect.ui.modulos.gestion.GestionViewModel
 import com.example.driveselect.ui.modulos.historial.HistorialScreen
@@ -107,7 +109,12 @@ fun AppNavigation(
                     onReservarClick = { auto ->
                         inventarioViewModel.seleccionarAuto(auto)
                         navController.navigate(Rutas.Alquiler.ruta)
+                    },
+                    onRentarClick = { auto ->
+                        inventarioViewModel.seleccionarAuto(auto)
+                        navController.navigate(Rutas.Renta.ruta)
                     }
+
                 )
             }
 
@@ -234,6 +241,31 @@ fun AppNavigation(
                         }
                     }
                 )
+            }
+
+            //para renta
+            composable(Rutas.Renta.ruta) {
+                val inventarioEntry = remember(it) {
+                    navController.getBackStackEntry(Rutas.Inventario.ruta)
+                }
+                val inventarioViewModel: InventarioViewModel = viewModel(inventarioEntry)
+                val rentaViewModel: RentaViewModel = viewModel()
+                val autoSeleccionado by inventarioViewModel.autoSeleccionado.collectAsState()
+
+                if (autoSeleccionado != null) {
+                    RentaScreen(
+                        auto = autoSeleccionado!!,
+                        viewModel = rentaViewModel,
+                        onRentaExitosa = {
+                            navController.popBackStack()
+                        },
+                        onVolver = {
+                            navController.popBackStack()
+                        }
+                    )
+                } else {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
             }
         }
     }

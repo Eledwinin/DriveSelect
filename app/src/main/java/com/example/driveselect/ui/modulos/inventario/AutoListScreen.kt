@@ -42,6 +42,7 @@ fun AutoListScreen(
     viewModel: InventarioViewModel,
     esAdmin: Boolean = false,
     onReservarClick: (Auto) -> Unit,
+    onRentarClick: (Auto) -> Unit
 ) {
     val autos by viewModel.autos.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -77,20 +78,18 @@ fun AutoListScreen(
         viewModel.idsAutosOcupados
     ) {
         autos.filter { auto ->
-            // filtro de búsqueda por texto
+            // filtro por texto
             val coincideTexto = searchText.isBlank() ||
                     auto.marca.contains(searchText, ignoreCase = true) ||
                     auto.modelo.contains(searchText, ignoreCase = true)
 
-            // revisa si hay un filtro de fechas activo en este momento
+            // revisa si hay un filtro de fechas activo
             val hayFiltroFechaActivo = viewModel.fechaInicioFiltro != null && viewModel.fechaFinFiltro != null
 
             if (hayFiltroFechaActivo) {
-                // solo mostrar carros disponibles Y que no estén ocupados en ese rango
+                // el auto estar+á disponible si NO tiene reservas que choquen en esas fechas
                 val libreEnFechas = viewModel.autoEstaDisponibleEnRango(auto.id)
-                val esEstadoDisponible = auto.estado == AutoEstado.DISPONIBLE.displayName
-
-                coincideTexto && libreEnFechas && esEstadoDisponible
+                coincideTexto && libreEnFechas
             } else {
                 coincideTexto
             }
@@ -278,8 +277,10 @@ fun AutoListScreen(
                 ) { auto ->
                     AutoCardItem(
                         auto = auto,
+                        esAdmin = esAdmin,
                         onCardClick = { autoDetalle = auto },
-                        onReservarClick = { validarYProceder(auto) }
+                        onReservarClick = { validarYProceder(auto) },
+                        onRentarClick = {onRentarClick(auto)}
                     )
                 }
             }
@@ -453,8 +454,10 @@ fun AutoListScreen(
 @Composable
 fun AutoCardItem(
     auto: Auto,
+    esAdmin: Boolean = false,
     onCardClick: () -> Unit,
-    onReservarClick: () -> Unit
+    onReservarClick: () -> Unit,
+    onRentarClick: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -579,9 +582,63 @@ fun AutoCardItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // BOTÓN RENTAR
-            Box(contentAlignment = Alignment.Center) {
-                BotonAccionGold(texto = "RENTAR", onClick = onReservarClick)
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // BOTONES DE ACCIÓN
+            if (esAdmin) {
+                val estaDisponible = textoEstado == "DISPONIBLE"
+
+                Column(
+                    modifier = Modifier.width(82.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // boton de rentar para admin
+                    Button(
+                        onClick = onRentarClick,
+                        enabled = estaDisponible,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StatusGreenGlow,
+                            disabledContainerColor = SurfaceVariant
+                        ),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                    ) {
+                        Text(
+                            text = "RENTAR",
+                            color = if (estaDisponible) Color.Black else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    // boton para reservar
+                    OutlinedButton(
+                        onClick = onReservarClick,
+                        border = BorderStroke(1.dp, GoldPrimary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldPrimary),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                    ) {
+                        Text(
+                            text = "RESERVAR",
+                            color = GoldPrimary,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else {
+                // si es cliente solo ve un boton
+                Box(contentAlignment = Alignment.Center) {
+                    BotonAccionGold(texto = "RESERVAR", onClick = onReservarClick)
+                }
             }
         }
     }

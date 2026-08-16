@@ -6,6 +6,7 @@ import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.data.model.AutoEstado
 import com.example.driveselect.data.repository.AutoRepository
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,25 +20,36 @@ class GestionViewModel(
     private val _solicitudesPendientes = MutableStateFlow<List<Alquiler>>(emptyList())
     val solicitudesPendientes: StateFlow<List<Alquiler>> = _solicitudesPendientes.asStateFlow()
 
-    // Lista de alquileres activos
     private val _alquileresActivos = MutableStateFlow<List<Alquiler>>(emptyList())
     val alquileresActivos: StateFlow<List<Alquiler>> = _alquileresActivos.asStateFlow()
 
+    private var listenerAlquileres: ListenerRegistration? = null
+
     init {
-        cargarSolicitudesPendientes()
-        cargarAlquileresActivos()
+        escucharAlquileresEnTiempoReal()
     }
 
-    fun cargarSolicitudesPendientes() {
-        repository.obtenerAlquileresPorEstado("pendiente") { lista ->
-            _solicitudesPendientes.value = lista
-        }
-    }
+    private fun escucharAlquileresEnTiempoReal() {
+        listenerAlquileres?.remove()
 
-    fun cargarAlquileresActivos() {
-        repository.obtenerAlquileresPorEstado("en uso") { lista ->
-            _alquileresActivos.value = lista
-        }
+        listenerAlquileres = FirebaseService.db.collection("alquileres")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+
+                val todos = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(Alquiler::class.java)?.copy(id = doc.id)
+                }
+
+                // solicitudes pendientes
+                _solicitudesPendientes.value = todos.filter {
+                    it.estado.lowercase().trim() in listOf("pendiente", "aprobado", "en proceso", "en_proceso")
+                }
+
+                //alquileres activos
+                _alquileresActivos.value = todos.filter {
+                    it.estado.lowercase().trim() in listOf("en_uso", "en uso", "alquilado_en_uso", "alquilado en uso")
+                }
+            }
     }
 
     // APROBAR / ENTREGAR VEHÍCULO AL CLIENTE
@@ -46,11 +58,11 @@ class GestionViewModel(
             try {
                 val batch = FirebaseService.db.batch()
 
-                // 1. Marcar el estado de la solicitud/alquiler a "en uso"
-                val docSolicitud = FirebaseService.db.collection("solicitudes").document(alquiler.id)
-                batch.update(docSolicitud, "estado", "en uso")
+                // marca el estado del alquiler a "en_uso"
+                val docAlquiler = FirebaseService.db.collection("alquileres").document(alquiler.id)
+                batch.update(docAlquiler, "estado", "en_uso")
 
-                // 2. Cambiar el auto a ALQUILADO EN USO (Rojo) y guardar fechas activas
+                // cambia el auto a ALQUILADO EN USO (Rojo)
                 val docAuto = FirebaseService.db.collection("autos").document(alquiler.autoId)
                 batch.update(
                     docAuto, mapOf(
@@ -60,50 +72,49 @@ class GestionViewModel(
                     )
                 )
 
-                // Ejecutar ambas operaciones en batch
                 batch.commit().await()
-
-                // Recargar listas locales
-                cargarSolicitudesPendientes()
-                cargarAlquileresActivos()
                 onExito()
             } catch (e: Exception) {
-                // Manejo de error o reintento tradicional
-                repository.actualizarEstadoAlquiler(alquiler.id, "en uso") {
-                    repository.actualizarEstadoAuto(alquiler.autoId, AutoEstado.ALQUILADO_EN_USO) {
-                        cargarSolicitudesPendientes()
-                        cargarAlquileresActivos()
-                        onExito()
-                    }
-                }
+                FirebaseService.db.collection("alquileres").document(alquiler.id).update("estado", "en_uso")
+                FirebaseService.db.collection("autos").document(alquiler.autoId).update("estado", AutoEstado.ALQUILADO_EN_USO.displayName)
+                onExito()
             }
         }
     }
 
     // RECHAZAR / CANCELAR
     fun rechazarReserva(alquiler: Alquiler, onExito: () -> Unit = {}) {
-        repository.actualizarEstadoAlquiler(alquiler.id, "cancelado") {
-            repository.actualizarEstadoAuto(alquiler.autoId, AutoEstado.DISPONIBLE) {
-                cargarSolicitudesPendientes()
-                cargarAlquileresActivos()
+        viewModelScope.launch {
+            try {
+                FirebaseService.db.collection("alquileres").document(alquiler.id).update("estado", "cancelado").await()
+                FirebaseService.db.collection("autos").document(alquiler.autoId).update("estado", AutoEstado.DISPONIBLE.displayName).await()
                 onExito()
+            } catch (e: Exception) {
+                // Manejo de error
             }
         }
     }
 
     // RECIBIR / FINALIZAR
     fun finalizarAlquiler(alquiler: Alquiler, onExito: () -> Unit = {}) {
-        repository.actualizarEstadoAlquiler(alquiler.id, "finalizado") {
-            repository.actualizarEstadoAuto(alquiler.autoId, AutoEstado.DISPONIBLE) {
-                cargarSolicitudesPendientes()
-                cargarAlquileresActivos()
+        viewModelScope.launch {
+            try {
+                FirebaseService.db.collection("alquileres").document(alquiler.id).update("estado", "finalizado").await()
+                FirebaseService.db.collection("autos").document(alquiler.autoId).update("estado", AutoEstado.DISPONIBLE.displayName).await()
                 onExito()
+            } catch (e: Exception) {
+                // Manejo de error
             }
         }
     }
 
-
     fun obtenerSolicitudesOrdenadas(solicitudes: List<Alquiler>): List<Alquiler> {
         return solicitudes.sortedBy { it.fechaRecogida }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        listenerAlquileres?.remove()
+        listenerAlquileres = null
     }
 }

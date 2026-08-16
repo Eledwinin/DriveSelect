@@ -78,6 +78,7 @@ class InventarioViewModel(
 
                                     // IDs de autos que tienen reserva para hoy
                                     val autosEnProcesoHoy = mutableSetOf<String>()
+                                    val autosEnUso = mutableSetOf<String>()
 
                                     if (alqSnap != null) {
                                         for (doc in alqSnap.documents) {
@@ -85,9 +86,13 @@ class InventarioViewModel(
                                             val estado = (doc.getString("estado") ?: "").lowercase().trim()
                                             val fechaRecogida = doc.getLong("fechaRecogida") ?: doc.getLong("fechaInicio") ?: 0L
 
-                                            if (autoId.isNotBlank() && estado in listOf("pendiente", "aprobado", "en proceso", "en_proceso")) {
-                                                if (fechaRecogida > 0L && fechaRecogida <= finDeHoyMs) {
-                                                    autosEnProcesoHoy.add(autoId)
+                                            if (autoId.isNotBlank()) {
+                                                if (estado in listOf("en_uso", "en uso", "alquilado_en_uso", "alquilado en uso")) {
+                                                    autosEnUso.add(autoId)
+                                                } else if (estado in listOf("pendiente", "aprobado", "en proceso", "en_proceso")) {
+                                                    if (fechaRecogida > 0L && fechaRecogida <= finDeHoyMs) {
+                                                        autosEnProcesoHoy.add(autoId)
+                                                    }
                                                 }
                                             }
                                         }
@@ -96,7 +101,7 @@ class InventarioViewModel(
                                     // Asignar el estado visual directamente
                                     val listaActualizada = listaAutosRaw.map { auto ->
                                         val estadoActual = auto.estado.uppercase().trim()
-                                        if (estadoActual in listOf("ALQUILADO EN USO", "EN USO", "ALQUILADO_EN_USO")) {
+                                        if (auto.id in autosEnUso || estadoActual in listOf("ALQUILADO EN USO", "EN USO", "ALQUILADO_EN_USO")) {
                                             auto.copy(estado = AutoEstado.ALQUILADO_EN_USO.displayName)
                                         } else if (auto.id in autosEnProcesoHoy) {
                                             auto.copy(estado = AutoEstado.ALQUILADO_EN_PROCESO.displayName)
@@ -179,25 +184,40 @@ class InventarioViewModel(
 
         viewModelScope.launch {
             try {
-                val snapshot = FirebaseService.db.collection("solicitudes")
-                    .get()
-                    .await()
+                val calInicioFiltro = java.util.Calendar.getInstance().apply {
+                    timeInMillis = inicioMillis
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }
+                val inicioFiltroMs = calInicioFiltro.timeInMillis
 
+                val calFinFiltro = java.util.Calendar.getInstance().apply {
+                    timeInMillis = finMillis
+                    set(java.util.Calendar.HOUR_OF_DAY, 23)
+                    set(java.util.Calendar.MINUTE, 59)
+                    set(java.util.Calendar.SECOND, 59)
+                    set(java.util.Calendar.MILLISECOND, 999)
+                }
+                val finFiltroMs = calFinFiltro.timeInMillis
+
+                val snapshot = FirebaseService.db.collection("alquileres").get().await()
                 val ocupados = mutableSetOf<String>()
 
                 for (doc in snapshot.documents) {
                     val autoId = doc.getString("autoId") ?: continue
                     val resInicio = doc.getLong("fechaRecogida") ?: doc.getLong("fechaInicio") ?: continue
                     val resFin = doc.getLong("fechaEntrega") ?: doc.getLong("fechaFin") ?: continue
-                    val estado = (doc.getString("estado") ?: "").uppercase()
+                    val estado = (doc.getString("estado") ?: "").lowercase().trim()
 
-                    // Ignoramos solicitudes rechazadas o canceladas
-                    if (estado.contains("RECHAZADO") || estado.contains("CANCELADO")) {
+                    // Omitir alquileres cancelados o rechazados
+                    if (estado in listOf("cancelado", "rechazado")) {
                         continue
                     }
 
-                    // Si la fecha solicitada se cruza con la reserva existente
-                    if (inicioMillis <= resFin && finMillis >= resInicio) {
+                    // verifica si el alquiler está dentro del rango de fechas
+                    if (inicioFiltroMs <= resFin && finFiltroMs >= resInicio) {
                         ocupados.add(autoId)
                     }
                 }

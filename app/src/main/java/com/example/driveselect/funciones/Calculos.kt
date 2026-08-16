@@ -6,6 +6,9 @@ import java.util.Locale
 
 object Calculos {
 
+    //tarifa de mora por dia tardado en entregar carro
+    const val TARIFA_MORA_POR_DIA = 20.00
+
     // esto va a calcular cuantos días hay entre dos fechas en milisegundos
     fun calcularDiasDeAlquiler(fechaInicio: Long, fechaFin: Long): Int {
         if (fechaFin <= fechaInicio) return 1
@@ -31,35 +34,40 @@ object Calculos {
         return sdf.format(Date(timestampMs))
     }
 
-    // comprueba si un dia cae en los rangos de reserva ocupados
+    // Comprueba si un día cae en los rangos de reserva ocupados o es del pasado
     fun esFechaOcupada(utcTimeMillis: Long, rangosOcupados: List<Pair<Long, Long>>): Boolean {
-        // 1. Obtener la medianoche de HOY local
+        // 1. Medianoche de HOY en la zona horaria del sistema convertida a base UTC del día
         val calHoy = java.util.Calendar.getInstance().apply {
             set(java.util.Calendar.HOUR_OF_DAY, 0)
             set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)
         }
-        val hoyMs = calHoy.timeInMillis
+        val hoyLocalMs = calHoy.timeInMillis
 
-        // covnierte la fecha que el DatePicker está evaluando
-        val offset = java.util.TimeZone.getDefault().getOffset(utcTimeMillis)
-        val fechaEvalLocal = utcTimeMillis - offset
-        val calEval = java.util.Calendar.getInstance().apply {
-            timeInMillis = fechaEvalLocal
+        // Normalizar la fecha que entrega el DatePicker
+        val calEval = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = utcTimeMillis
+        }
+
+        // Creamos la misma fecha en calendario local para comparar día exacto
+        val calEvalLocal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.YEAR, calEval.get(java.util.Calendar.YEAR))
+            set(java.util.Calendar.MONTH, calEval.get(java.util.Calendar.MONTH))
+            set(java.util.Calendar.DAY_OF_MONTH, calEval.get(java.util.Calendar.DAY_OF_MONTH))
             set(java.util.Calendar.HOUR_OF_DAY, 0)
             set(java.util.Calendar.MINUTE, 0)
             set(java.util.Calendar.SECOND, 0)
             set(java.util.Calendar.MILLISECOND, 0)
         }
-        val diaEvalMs = calEval.timeInMillis
+        val diaEvalMs = calEvalLocal.timeInMillis
 
-        // bloquea cualquier dia hasta la fecha actual
-        if (diaEvalMs <= hoyMs) {
+        //bloquea SOLO días anteriores a hoy
+        if (diaEvalMs < hoyLocalMs) {
             return true
         }
 
-        // bloqeua el rango de fechas ocupadas
+        // bloquea los rangos donde el auto ya tiene una reserva activa
         return rangosOcupados.any { (inicioMs, finMs) ->
             val calInicio = java.util.Calendar.getInstance().apply {
                 timeInMillis = inicioMs
@@ -78,5 +86,35 @@ object Calculos {
 
             diaEvalMs in calInicio.timeInMillis..calFin.timeInMillis
         }
+    }
+
+
+    // calcula cuantos dias de retraso lleva
+    fun calcularDiasMora(fechaEntregaMs: Long): Int {
+        val calHoy = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val calEntrega = java.util.Calendar.getInstance().apply {
+            timeInMillis = fechaEntregaMs
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        val diffMs = calHoy.timeInMillis - calEntrega.timeInMillis
+        return if (diffMs > 0) {
+            (diffMs / (1000 * 60 * 60 * 24)).toInt()
+        } else {
+            0
+        }
+    }
+
+    // calcula el monto total de mora
+    fun calcularMontoMora(diasMora: Int, tarifaPorDia: Double = TARIFA_MORA_POR_DIA): Double {
+        return diasMora * tarifaPorDia
     }
 }

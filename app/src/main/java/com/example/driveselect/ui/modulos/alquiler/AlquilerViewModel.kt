@@ -118,4 +118,54 @@ class AlquilerViewModel(
             }
         }
     }
+
+
+    fun procesarRentaInmediataAdmin(
+        auto: Auto,
+        nombreCliente: String,
+        telefonoCliente: String,
+        duiCliente: String,
+        licenciaCliente: String,
+        correoCliente: String,
+        fechaInicio: Long,
+        fechaFin: Long,
+        onExito: () -> Unit
+    ) {
+        val dias = Calculos.calcularDiasDeAlquiler(fechaInicio, fechaFin)
+        val costo = Calculos.calcularCostoTotal(dias, auto.precioPorDia)
+
+        val nuevoAlquiler = Alquiler(
+            usuarioId = "PRESENCIAL",
+            autoId = auto.id,
+            autoMarca = auto.marca,
+            autoModelo = auto.modelo,
+            nombreCliente = nombreCliente.trim(),
+            telefonoCliente = telefonoCliente.trim(),
+            correoCliente = correoCliente.trim(),
+            documentoCliente = duiCliente.trim(),
+            licenciaCliente = licenciaCliente.trim(),
+            fechaRecogida = fechaInicio,
+            fechaEntrega = fechaFin,
+            fechaRecogidaTexto = Calculos.formatearFecha(fechaInicio),
+            fechaEntregaTexto = Calculos.formatearFecha(fechaFin),
+            diasTotales = dias,
+            costoTotal = costo,
+            estado = "en_uso"
+        )
+
+        // guarda esto en alquileres
+        FirebaseService.db.collection("alquileres")
+            .add(nuevoAlquiler)
+            .addOnSuccessListener { docRef ->
+                docRef.update("id", docRef.id)
+
+                // ya no se pone en pendiente como en reserva, pasa de una a "en uso", porque es renta inmediata
+                FirebaseService.db.collection("autos")
+                    .document(auto.id)
+                    .update("estado", "ALQUILADO EN USO")
+                    .addOnSuccessListener {
+                        onExito()
+                    }
+            }
+    }
 }

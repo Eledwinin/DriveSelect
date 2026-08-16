@@ -468,11 +468,17 @@ val costoTotal = remember(diasTotales, auto.precioPorDia) {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { utcMillis ->
-                            val offset = TimeZone.getDefault().getOffset(utcMillis)
-                            val localMillis = utcMillis - offset
 
-                            fechaInicio = localMillis
-                            if (fechaFin <= localMillis) {
+                            val calUtc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                                timeInMillis = utcMillis
+                            }
+                            val calLocal = java.util.Calendar.getInstance().apply {
+                                set(calUtc.get(java.util.Calendar.YEAR), calUtc.get(java.util.Calendar.MONTH), calUtc.get(java.util.Calendar.DAY_OF_MONTH), 0, 0, 0)
+                                set(java.util.Calendar.MILLISECOND, 0)
+                            }
+
+                            fechaInicio = calLocal.timeInMillis
+                            if (fechaFin <= fechaInicio) {
                                 fechaFin = 0L
                             }
                         }
@@ -504,9 +510,14 @@ val costoTotal = remember(diasTotales, auto.precioPorDia) {
         )
 
         val esFechaValida = datePickerState.selectedDateMillis?.let { utcMillis ->
-            val offset = TimeZone.getDefault().getOffset(utcMillis)
-            val localMillis = utcMillis - offset
-            reglaFechasDisponibles.isSelectableDate(utcMillis) && (fechaInicio == 0L || localMillis > fechaInicio)
+            val calUtc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                timeInMillis = utcMillis
+            }
+            val calLocal = java.util.Calendar.getInstance().apply {
+                set(calUtc.get(java.util.Calendar.YEAR), calUtc.get(java.util.Calendar.MONTH), calUtc.get(java.util.Calendar.DAY_OF_MONTH), 0, 0, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            reglaFechasDisponibles.isSelectableDate(utcMillis) && (fechaInicio == 0L || calLocal.timeInMillis > fechaInicio)
         } ?: false
 
         DatePickerDialog(
@@ -515,10 +526,15 @@ val costoTotal = remember(diasTotales, auto.precioPorDia) {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { utcMillis ->
-                            val offset = TimeZone.getDefault().getOffset(utcMillis)
-                            val localMillis = utcMillis - offset
+                            val calUtc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                                timeInMillis = utcMillis
+                            }
+                            val calLocal = java.util.Calendar.getInstance().apply {
+                                set(calUtc.get(java.util.Calendar.YEAR), calUtc.get(java.util.Calendar.MONTH), calUtc.get(java.util.Calendar.DAY_OF_MONTH), 0, 0, 0)
+                                set(java.util.Calendar.MILLISECOND, 0)
+                            }
 
-                            fechaFin = localMillis
+                            fechaFin = calLocal.timeInMillis
                         }
                         mostrarDatePickerFin = false
                     },
