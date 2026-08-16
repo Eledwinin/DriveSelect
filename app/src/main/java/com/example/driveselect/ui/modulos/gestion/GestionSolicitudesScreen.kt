@@ -17,6 +17,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.driveselect.data.model.Alquiler
 import com.example.driveselect.funciones.Calculos
+import com.example.driveselect.ui.modulos.mensajes.BannerMensajeFlotante
+import com.example.driveselect.ui.modulos.mensajes.DialogoMensaje
+import com.example.driveselect.ui.modulos.mensajes.TipoMensaje
 import com.example.driveselect.ui.theme.*
 import java.util.Calendar
 
@@ -32,7 +35,12 @@ fun GestionSolicitudesScreen(
     var solicitudParaEntregar by remember { mutableStateOf<Alquiler?>(null) }
     var alquilerParaRecibir by remember { mutableStateOf<Alquiler?>(null) }
 
-    // Rango horario del día de hoy
+    var dialogoExitoVisible by remember { mutableStateOf(false) }
+    var tituloExito by remember { mutableStateOf("") }
+    var mensajeExito by remember { mutableStateOf("") }
+    var bannerNotificacionVisible by remember { mutableStateOf(false) }
+    var mensajeBanner by remember { mutableStateOf("") }
+
     val calHoyInicio = remember {
         Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -53,214 +61,247 @@ fun GestionSolicitudesScreen(
     }
     val finHoyMs = calHoyFin.timeInMillis
 
-    // Clasificación de Solicitudes Pendientes
     val solicitudesOrdenadas = remember(solicitudes) { solicitudes.sortedBy { it.fechaRecogida } }
     val entregasHoy = remember(solicitudesOrdenadas) { solicitudesOrdenadas.filter { it.fechaRecogida <= finHoyMs } }
     val proximasEntregas = remember(solicitudesOrdenadas) { solicitudesOrdenadas.filter { it.fechaRecogida > finHoyMs } }
 
-    // Clasificación de Vehículos en Uso
     val activosOrdenados = remember(activos) { activos.sortedBy { it.fechaEntrega } }
     val vencidosConMora = remember(activosOrdenados) { activosOrdenados.filter { it.fechaEntrega < inicioHoyMs } }
     val devolucionesHoy = remember(activosOrdenados) { activosOrdenados.filter { it.fechaEntrega in inicioHoyMs..finHoyMs } }
     val proximasDevoluciones = remember(activosOrdenados) { activosOrdenados.filter { it.fechaEntrega > finHoyMs } }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground)
-            .padding(horizontal = 18.dp)
-            .padding(top = 8.dp)
-    ) {
-        // ENCABEZADO
-        Text(
-            text = "PANEL DE ADMINISTRACIÓN",
-            color = GoldPrimary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-        Text(
-            text = if (tabSeleccionada == 0) "Solicitudes Pendientes" else "Vehículos en Uso",
-            color = TextPrimary,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // PESTAÑAS
-        TabRow(
-            selectedTabIndex = tabSeleccionada,
-            containerColor = SurfaceCard,
-            contentColor = GoldPrimary
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DarkBackground)
+                .padding(horizontal = 18.dp)
+                .padding(top = 8.dp)
         ) {
-            Tab(
-                selected = tabSeleccionada == 0,
-                onClick = { tabSeleccionada = 0 },
-                text = { Text("PENDIENTES (${solicitudes.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            Text(
+                text = "PANEL DE ADMINISTRACIÓN",
+                color = GoldPrimary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
             )
-            Tab(
-                selected = tabSeleccionada == 1,
-                onClick = { tabSeleccionada = 1 },
-                text = { Text("EN USO (${activos.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            Text(
+                text = if (tabSeleccionada == 0) "Solicitudes Pendientes" else "Vehículos en Uso",
+                color = TextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold
             )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-        if (tabSeleccionada == 0) {
-            // PESTAÑA: SOLICITUDES PENDIENTES
-            if (solicitudes.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay solicitudes pendientes", color = TextSecondary, fontSize = 14.sp)
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(bottom = 20.dp)
-                ) {
-                    if (entregasHoy.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "ENTREGAS DE HOY (${entregasHoy.size})",
-                                color = StatusOrangeGlow,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
+            TabRow(
+                selectedTabIndex = tabSeleccionada,
+                containerColor = SurfaceCard,
+                contentColor = GoldPrimary
+            ) {
+                Tab(
+                    selected = tabSeleccionada == 0,
+                    onClick = { tabSeleccionada = 0 },
+                    text = { Text("PENDIENTES (${solicitudes.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = tabSeleccionada == 1,
+                    onClick = { tabSeleccionada = 1 },
+                    text = { Text("EN USO (${activos.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (tabSeleccionada == 0) {
+                if (solicitudes.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No hay solicitudes pendientes", color = TextSecondary, fontSize = 14.sp)
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(bottom = 20.dp)
+                    ) {
+                        if (entregasHoy.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "ENTREGAS DE HOY (${entregasHoy.size})",
+                                    color = StatusOrangeGlow,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            items(entregasHoy, key = { it.id }) { alquiler ->
+                                SolicitudCard(
+                                    alquiler = alquiler,
+                                    esParaHoy = true,
+                                    onEntregar = { solicitudParaEntregar = alquiler },
+                                    onRechazar = {
+                                        viewModel.rechazarReserva(alquiler) {
+                                            mensajeBanner = "Solicitud rechazada correctamente"
+                                            bannerNotificacionVisible = true
+                                        }
+                                    }
+                                )
+                            }
                         }
-                        items(entregasHoy, key = { it.id }) { alquiler ->
-                            SolicitudCard(
-                                alquiler = alquiler,
-                                esParaHoy = true,
-                                onEntregar = { solicitudParaEntregar = alquiler },
-                                onRechazar = { viewModel.rechazarReserva(alquiler) }
-                            )
+
+                        if (proximasEntregas.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "PRÓXIMAS RESERVAS (${proximasEntregas.size})",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            items(proximasEntregas, key = { it.id }) { alquiler ->
+                                SolicitudCard(
+                                    alquiler = alquiler,
+                                    esParaHoy = false,
+                                    onEntregar = { solicitudParaEntregar = alquiler },
+                                    onRechazar = {
+                                        viewModel.rechazarReserva(alquiler) {
+                                            mensajeBanner = "Solicitud rechazada correctamente"
+                                            bannerNotificacionVisible = true
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
-
-                    if (proximasEntregas.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "PRÓXIMAS RESERVAS (${proximasEntregas.size})",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
+                }
+            } else {
+                if (activos.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No hay vehículos en uso actualmente", color = TextSecondary, fontSize = 14.sp)
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(bottom = 20.dp)
+                    ) {
+                        if (vencidosConMora.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "🚨 RETRASOS / VENCIDOS CON MORA (${vencidosConMora.size})",
+                                    color = Color(0xFFFF5252),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            items(vencidosConMora, key = { it.id }) { alquiler ->
+                                AlquilerActivoCard(
+                                    alquiler = alquiler,
+                                    tipoEstado = TipoEstadoActivo.VENCIDO,
+                                    onRecibirAuto = { alquilerParaRecibir = alquiler }
+                                )
+                            }
                         }
-                        items(proximasEntregas, key = { it.id }) { alquiler ->
-                            SolicitudCard(
-                                alquiler = alquiler,
-                                esParaHoy = false,
-                                onEntregar = { solicitudParaEntregar = alquiler },
-                                onRechazar = { viewModel.rechazarReserva(alquiler) }
-                            )
+
+                        if (devolucionesHoy.isNotEmpty()) {
+                            item {
+                                if (vencidosConMora.isNotEmpty()) Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "DEVOLUCIONES DE HOY (${devolucionesHoy.size})",
+                                    color = StatusOrangeGlow,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            items(devolucionesHoy, key = { it.id }) { alquiler ->
+                                AlquilerActivoCard(
+                                    alquiler = alquiler,
+                                    tipoEstado = TipoEstadoActivo.HOY,
+                                    onRecibirAuto = { alquilerParaRecibir = alquiler }
+                                )
+                            }
+                        }
+
+                        if (proximasDevoluciones.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "CONTRATO VIGENTE / EN TIEMPO (${proximasDevoluciones.size})",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                            items(proximasDevoluciones, key = { it.id }) { alquiler ->
+                                AlquilerActivoCard(
+                                    alquiler = alquiler,
+                                    tipoEstado = TipoEstadoActivo.VIGENTE,
+                                    onRecibirAuto = { alquilerParaRecibir = alquiler }
+                                )
+                            }
                         }
                     }
                 }
             }
-        } else {
-            // PESTAÑA: VEHÍCULOS EN USO
-            if (activos.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay vehículos en uso actualmente", color = TextSecondary, fontSize = 14.sp)
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(bottom = 20.dp)
-                ) {
-                    // 1. VENCIDOS CON MORA
-                    if (vencidosConMora.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "🚨 RETRASOS / VENCIDOS CON MORA (${vencidosConMora.size})",
-                                color = Color(0xFFFF5252),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        items(vencidosConMora, key = { it.id }) { alquiler ->
-                            AlquilerActivoCard(
-                                alquiler = alquiler,
-                                tipoEstado = TipoEstadoActivo.VENCIDO,
-                                onRecibirAuto = { alquilerParaRecibir = alquiler }
-                            )
-                        }
-                    }
-
-                    // 2. DEVOLUCIONES DE HOY
-                    if (devolucionesHoy.isNotEmpty()) {
-                        item {
-                            if (vencidosConMora.isNotEmpty()) Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "DEVOLUCIONES DE HOY (${devolucionesHoy.size})",
-                                color = StatusOrangeGlow,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        items(devolucionesHoy, key = { it.id }) { alquiler ->
-                            AlquilerActivoCard(
-                                alquiler = alquiler,
-                                tipoEstado = TipoEstadoActivo.HOY,
-                                onRecibirAuto = { alquilerParaRecibir = alquiler }
-                            )
-                        }
-                    }
-
-                    // 3. PRÓXIMAS DEVOLUCIONES
-                    if (proximasDevoluciones.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "CONTRATO VIGENTE / EN TIEMPO (${proximasDevoluciones.size})",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        items(proximasDevoluciones, key = { it.id }) { alquiler ->
-                            AlquilerActivoCard(
-                                alquiler = alquiler,
-                                tipoEstado = TipoEstadoActivo.VIGENTE,
-                                onRecibirAuto = { alquilerParaRecibir = alquiler }
-                            )
-                        }
-                    }
-                }
-            }
         }
+
+        BannerMensajeFlotante(
+            visible = bannerNotificacionVisible,
+            tipo = TipoMensaje.INFO,
+            mensaje = mensajeBanner,
+            onDismiss = { bannerNotificacionVisible = false }
+        )
     }
 
-    // MODAL ENTREGA (CHECKLIST)
     solicitudParaEntregar?.let { alquiler ->
         DialogoChecklistEntrega(
             alquiler = alquiler,
             onDismiss = { solicitudParaEntregar = null },
             onConfirmarEntrega = {
-                viewModel.aprobarReserva(alquiler)
+                viewModel.aprobarReserva(alquiler) {
+                    tituloExito = "¡Vehículo Entregado!"
+                    mensajeExito = "Se ha completado la entrega de ${alquiler.autoMarca} ${alquiler.autoModelo}"
+                    dialogoExitoVisible = true
+                }
                 solicitudParaEntregar = null
             }
         )
     }
 
-    // MODAL DE LIQUIDACIÓN Y RECEPCIÓN (CON O SIN MORA)
     alquilerParaRecibir?.let { alquiler ->
         DialogoRecepcionVehiculo(
             alquiler = alquiler,
             onDismiss = { alquilerParaRecibir = null },
             onConfirmarRecepcion = {
-                viewModel.finalizarAlquiler(alquiler)
+                val diasMora = Calculos.calcularDiasMora(alquiler.fechaEntrega)
+                val mora = Calculos.calcularMontoMora(diasMora)
+                val totalFinal = alquiler.costoTotal + mora
+
+                viewModel.finalizarAlquiler(alquiler) {
+                    tituloExito = "¡Vehículo Recibido!"
+                    mensajeExito = if (diasMora > 0) {
+                        "Auto recibido exitosamente. Total cobrado: ${Calculos.formatearMoneda(totalFinal)} (incluye ${Calculos.formatearMoneda(mora)} por mora de $diasMora días)."
+                    } else {
+                        "El vehículo ${alquiler.autoMarca} ${alquiler.autoModelo} fue recibido a tiempo y ya está disponible en el catálogo."
+                    }
+                    dialogoExitoVisible = true
+                }
                 alquilerParaRecibir = null
             }
         )
     }
+
+    DialogoMensaje(
+        visible = dialogoExitoVisible,
+        tipo = TipoMensaje.EXITO,
+        titulo = tituloExito,
+        mensaje = mensajeExito,
+        textoBoton = "ACEPTAR",
+        onDismiss = { dialogoExitoVisible = false }
+    )
 }
 
 enum class TipoEstadoActivo { VENCIDO, HOY, VIGENTE }

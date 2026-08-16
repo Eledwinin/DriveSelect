@@ -26,6 +26,9 @@ import com.example.driveselect.R
 import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.funciones.Calculos
+import com.example.driveselect.ui.modulos.mensajes.BannerMensajeFlotante
+import com.example.driveselect.ui.modulos.mensajes.DialogoMensaje
+import com.example.driveselect.ui.modulos.mensajes.TipoMensaje
 import com.example.driveselect.ui.theme.*
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
@@ -41,6 +44,13 @@ fun RentaScreen(
 ) {
     val context = LocalContext.current
 
+    // ESTADOS DE RETROALIMENTACIÓN
+    var mostrarExitoDialog by remember { mutableStateOf(false) }
+    var mostrarBannerAdvertencia by remember { mutableStateOf(false) }
+    var mensajeAdvertencia by remember { mutableStateOf("") }
+    var mostrarBannerError by remember { mutableStateOf(false) }
+    var mensajeError by remember { mutableStateOf("") }
+
     val drawableResId = remember(auto.imagenUrl) {
         try {
             if (auto.imagenUrl.isNotBlank()) {
@@ -50,14 +60,12 @@ fun RentaScreen(
         } catch (e: Exception) { R.drawable.ic_launcher_background }
     }
 
-    // Campos en blanco para registro de cliente presencial
     var nombreCliente by remember { mutableStateOf("") }
     var correoCliente by remember { mutableStateOf("") }
     var telefonoCliente by remember { mutableStateOf("") }
     var documentoCliente by remember { mutableStateOf("") }
     var licenciaCliente by remember { mutableStateOf("") }
 
-    // Fecha de inicio fijada a HOY a medianoche
     val fechaInicio = remember {
         Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
@@ -111,248 +119,283 @@ fun RentaScreen(
         }
     }
 
-    val formularioValido = nombreCliente.isNotBlank() &&
-            telefonoCliente.isNotBlank() &&
-            documentoCliente.isNotBlank() &&
-            licenciaCliente.isNotBlank() &&
-            fechaFin > 0L
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground)
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            text = "REGISTRO DE RENTA EN SUCURSAL",
-            color = StatusGreenGlow,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-        Text(
-            text = "${auto.marca} ${auto.modelo}",
-            color = TextPrimary,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
-        Text(
-            text = "${Calculos.formatearMoneda(auto.precioPorDia)} por día",
-            color = TextSecondary,
-            fontSize = 13.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // VISTA PREVIA
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DarkBackground)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Box(
+            Text(
+                text = "REGISTRO DE RENTA EN SUCURSAL",
+                color = StatusGreenGlow,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Text(
+                text = "${auto.marca} ${auto.modelo}",
+                color = TextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "${Calculos.formatearMoneda(auto.precioPorDia)} por día",
+                color = TextSecondary,
+                fontSize = 13.sp
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // VISTA PREVIA
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(SurfaceVariant)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(drawableResId).crossfade(true).build(),
+                        contentDescription = "${auto.marca} ${auto.modelo}",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // FORMULARIO CLIENTE PRESENCIAL
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceCard)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutlinedTextField(
+                        value = nombreCliente,
+                        onValueChange = { nombreCliente = it },
+                        label = { Text("Nombre Completo del Cliente", color = TextSecondary) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StatusGreenGlow,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = telefonoCliente,
+                        onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 8) telefonoCliente = it },
+                        label = { Text("Teléfono", color = TextSecondary) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StatusGreenGlow,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = correoCliente,
+                        onValueChange = { correoCliente = it },
+                        label = { Text("Correo Electrónico (Opcional)", color = TextSecondary) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = StatusGreenGlow,
+                            unfocusedBorderColor = BorderSubtle,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = documentoCliente,
+                            onValueChange = { documentoCliente = it },
+                            label = { Text("DUI / Pasaporte", color = TextSecondary) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = StatusGreenGlow,
+                                unfocusedBorderColor = BorderSubtle,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = licenciaCliente,
+                            onValueChange = { licenciaCliente = it },
+                            label = { Text("N° Licencia", color = TextSecondary) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = StatusGreenGlow,
+                                unfocusedBorderColor = BorderSubtle,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // FECHA INICIO (HOY)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(SurfaceVariant.copy(alpha = 0.4f))
+                            .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
+                            .padding(12.dp)
+                    ) {
+                        Text("FECHA DE ENTREGA (HOY)", color = StatusGreenGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = Calculos.formatearFecha(fechaInicio),
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // FECHA DEVOLUCIÓN
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, if (fechaFin > 0L) StatusGreenGlow else BorderSubtle, RoundedCornerShape(10.dp))
+                            .clickable { mostrarDatePickerFin = true }
+                            .padding(12.dp)
+                    ) {
+                        Text("FECHA PROGRAMADA DE DEVOLUCIÓN", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (fechaFin > 0L) Calculos.formatearFecha(fechaFin) else "Seleccionar fecha de retorno",
+                            color = if (fechaFin > 0L) TextPrimary else TextSecondary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Días calculados:", color = TextSecondary, fontSize = 13.sp)
+                        Text("$diasTotales día(s)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total a Cobrar:", color = TextSecondary, fontSize = 14.sp)
+                        Text(
+                            text = Calculos.formatearMoneda(costoTotal),
+                            color = GoldPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // BOTÓN ABRIR CHECKLIST
+            Button(
+                onClick = {
+                    if (nombreCliente.isBlank() || telefonoCliente.isBlank() || documentoCliente.isBlank() || licenciaCliente.isBlank()) {
+                        mensajeAdvertencia = "Por favor completa todos los datos del cliente."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    if (fechaFin == 0L) {
+                        mensajeAdvertencia = "Debes seleccionar la fecha de devolución del vehículo."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    mostrarModalChecklist = true
+                },
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StatusGreenGlow,
+                    disabledContainerColor = SurfaceVariant
+                ),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceVariant)
+                    .height(48.dp)
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(drawableResId).crossfade(true).build(),
-                    contentDescription = "${auto.marca} ${auto.modelo}",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // FORMULARIO CLIENTE PRESENCIAL
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceCard)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                OutlinedTextField(
-                    value = nombreCliente,
-                    onValueChange = { nombreCliente = it },
-                    label = { Text("Nombre Completo del Cliente", color = TextSecondary) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = StatusGreenGlow,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = telefonoCliente,
-                    onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 8) telefonoCliente = it },
-                    label = { Text("Teléfono", color = TextSecondary) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = StatusGreenGlow,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = correoCliente,
-                    onValueChange = { correoCliente = it },
-                    label = { Text("Correo Electrónico (Opcional)", color = TextSecondary) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = StatusGreenGlow,
-                        unfocusedBorderColor = BorderSubtle,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = documentoCliente,
-                        onValueChange = { documentoCliente = it },
-                        label = { Text("DUI / Pasaporte", color = TextSecondary) },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = StatusGreenGlow,
-                            unfocusedBorderColor = BorderSubtle,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = licenciaCliente,
-                        onValueChange = { licenciaCliente = it },
-                        label = { Text("N° Licencia", color = TextSecondary) },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = StatusGreenGlow,
-                            unfocusedBorderColor = BorderSubtle,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // FECHA FIJO, hoy
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SurfaceVariant.copy(alpha = 0.4f))
-                        .border(1.dp, BorderSubtle, RoundedCornerShape(10.dp))
-                        .padding(12.dp)
-                ) {
-                    Text("FECHA DE ENTREGA (HOY)", color = StatusGreenGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = Calculos.formatearFecha(fechaInicio),
-                        color = TextPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // FECHA DEVOLUCIÓN
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, if (fechaFin > 0L) StatusGreenGlow else BorderSubtle, RoundedCornerShape(10.dp))
-                        .clickable { mostrarDatePickerFin = true }
-                        .padding(12.dp)
-                ) {
-                    Text("FECHA PROGRAMADA DE DEVOLUCIÓN", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (fechaFin > 0L) Calculos.formatearFecha(fechaFin) else "Seleccionar fecha de entrega",
-                        color = if (fechaFin > 0L) TextPrimary else TextSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider(color = BorderSubtle, thickness = 1.dp)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Días calculados:", color = TextSecondary, fontSize = 13.sp)
-                    Text("$diasTotales día(s)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Total a Cobrar:", color = TextSecondary, fontSize = 14.sp)
-                    Text(
-                        text = Calculos.formatearMoneda(costoTotal),
-                        color = GoldPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(22.dp))
+                    } else {
+                        Text(
+                            text = "VALIDAR Y ENTREGAR VEHÍCULO",
+                            color = Color.Black,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        BannerMensajeFlotante(
+            visible = mostrarBannerAdvertencia,
+            tipo = TipoMensaje.ADVERTENCIA,
+            mensaje = mensajeAdvertencia,
+            onDismiss = { mostrarBannerAdvertencia = false }
+        )
 
-        // BOTÓN RENTAR AHORA
-        Button(
-            onClick = { mostrarModalChecklist = true },
-            enabled = !isLoading && formularioValido,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = StatusGreenGlow,
-                disabledContainerColor = SurfaceVariant
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(22.dp))
-                } else {
-                    Text(
-                        text = "VALIDAR Y ENTREGAR VEHÍCULO",
-                        color = if (formularioValido) Color.Black else TextSecondary,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
+        BannerMensajeFlotante(
+            visible = mostrarBannerError,
+            tipo = TipoMensaje.ERROR,
+            mensaje = mensajeError,
+            onDismiss = { mostrarBannerError = false }
+        )
     }
+
+    // MODAL DE ÉXITO TRAS COMPLETAR RENTA
+    DialogoMensaje(
+        visible = mostrarExitoDialog,
+        tipo = TipoMensaje.EXITO,
+        titulo = "¡Renta Activada!",
+        mensaje = "El vehículo ${auto.marca} ${auto.modelo} fue entregado con éxito y su estado ha cambiado a EN USO.",
+        textoBoton = "FINALIZAR Y SALIR",
+        onDismiss = {
+            mostrarExitoDialog = false
+            onRentaExitosa()
+        }
+    )
 
     // SELECTOR DE FECHA DEVOLUCIÓN
     if (mostrarDatePickerFin) {
@@ -492,7 +535,12 @@ fun RentaScreen(
                             fechaFin = fechaFin,
                             onExito = {
                                 isLoading = false
-                                onRentaExitosa()
+                                mostrarExitoDialog = true
+                            },
+                            onError = { err ->
+                                isLoading = false
+                                mensajeError = err
+                                mostrarBannerError = true
                             }
                         )
                     },
