@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import com.example.driveselect.R
 import com.example.driveselect.data.firebase.FirebaseService
 import com.example.driveselect.data.model.Auto
 import com.example.driveselect.funciones.Calculos
+import com.example.driveselect.funciones.Validaciones
 import com.example.driveselect.ui.modulos.mensajes.BannerMensajeFlotante
 import com.example.driveselect.ui.modulos.mensajes.DialogoMensaje
 import com.example.driveselect.ui.modulos.mensajes.TipoMensaje
@@ -44,7 +46,6 @@ fun RentaScreen(
 ) {
     val context = LocalContext.current
 
-    // ESTADOS DE RETROALIMENTACIÓN
     var mostrarExitoDialog by remember { mutableStateOf(false) }
     var mostrarBannerAdvertencia by remember { mutableStateOf(false) }
     var mensajeAdvertencia by remember { mutableStateOf("") }
@@ -66,14 +67,26 @@ fun RentaScreen(
     var documentoCliente by remember { mutableStateOf("") }
     var licenciaCliente by remember { mutableStateOf("") }
 
+    var nombreTocado by remember { mutableStateOf(false) }
+    var telefonoTocado by remember { mutableStateOf(false) }
+    var correoTocado by remember { mutableStateOf(false) }
+    var documentoTocado by remember { mutableStateOf(false) }
+    var licenciaTocado by remember { mutableStateOf(false) }
+
+    val nombreError = nombreTocado && !Validaciones.esNombreValido(nombreCliente)
+    val telefonoError = telefonoTocado && !Validaciones.esTelefonoValido(telefonoCliente)
+    val correoError = correoTocado && correoCliente.isNotBlank() && !Validaciones.esCorreoValido(correoCliente)
+    val documentoError = documentoTocado && !Validaciones.esDocumentoValido(documentoCliente)
+    val licenciaError = licenciaTocado && licenciaCliente.trim().length < 4
+
     val fechaInicio = remember {
         Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-    }
+        }
+    }.timeInMillis
 
     var fechaFin by remember { mutableLongStateOf(0L) }
     var mostrarDatePickerFin by remember { mutableStateOf(false) }
@@ -148,7 +161,6 @@ fun RentaScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // VISTA PREVIA
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -172,7 +184,6 @@ fun RentaScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // FORMULARIO CLIENTE PRESENCIAL
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -184,50 +195,92 @@ fun RentaScreen(
                         onValueChange = { nombreCliente = it },
                         label = { Text("Nombre Completo del Cliente", color = TextSecondary) },
                         singleLine = true,
+                        isError = nombreError,
+                        supportingText = {
+                            if (nombreError) {
+                                Text("Ingresa un nombre válido (mínimo 3 caracteres)", color = Color(0xFFFF5252), fontSize = 11.sp)
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = StatusGreenGlow,
                             unfocusedBorderColor = BorderSubtle,
+                            errorBorderColor = Color(0xFFFF5252),
                             focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            unfocusedTextColor = TextPrimary,
+                            errorTextColor = TextPrimary
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focusState ->
+                                if (!focusState.isFocused && nombreCliente.isNotEmpty()) {
+                                    nombreTocado = true
+                                }
+                            }
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     OutlinedTextField(
                         value = telefonoCliente,
                         onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 8) telefonoCliente = it },
                         label = { Text("Teléfono", color = TextSecondary) },
                         singleLine = true,
+                        isError = telefonoError,
+                        supportingText = {
+                            if (telefonoError) {
+                                Text("El teléfono debe tener exactamente 8 dígitos", color = Color(0xFFFF5252), fontSize = 11.sp)
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = StatusGreenGlow,
                             unfocusedBorderColor = BorderSubtle,
+                            errorBorderColor = Color(0xFFFF5252),
                             focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            unfocusedTextColor = TextPrimary,
+                            errorTextColor = TextPrimary
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focusState ->
+                                if (!focusState.isFocused && telefonoCliente.isNotEmpty()) {
+                                    telefonoTocado = true
+                                }
+                            }
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     OutlinedTextField(
                         value = correoCliente,
                         onValueChange = { correoCliente = it },
                         label = { Text("Correo Electrónico (Opcional)", color = TextSecondary) },
                         singleLine = true,
+                        isError = correoError,
+                        supportingText = {
+                            if (correoError) {
+                                Text("Formato de correo no válido (ejemplo@correo.com)", color = Color(0xFFFF5252), fontSize = 11.sp)
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = StatusGreenGlow,
                             unfocusedBorderColor = BorderSubtle,
+                            errorBorderColor = Color(0xFFFF5252),
                             focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            unfocusedTextColor = TextPrimary,
+                            errorTextColor = TextPrimary
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focusState ->
+                                if (!focusState.isFocused && correoCliente.isNotEmpty()) {
+                                    correoTocado = true
+                                }
+                            }
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedTextField(
@@ -235,32 +288,59 @@ fun RentaScreen(
                             onValueChange = { documentoCliente = it },
                             label = { Text("DUI / Pasaporte", color = TextSecondary) },
                             singleLine = true,
+                            isError = documentoError,
+                            supportingText = {
+                                if (documentoError) {
+                                    Text("Mínimo 8 caracteres", color = Color(0xFFFF5252), fontSize = 10.sp)
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = StatusGreenGlow,
                                 unfocusedBorderColor = BorderSubtle,
+                                errorBorderColor = Color(0xFFFF5252),
                                 focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
+                                unfocusedTextColor = TextPrimary,
+                                errorTextColor = TextPrimary
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { focusState ->
+                                    if (!focusState.isFocused && documentoCliente.isNotEmpty()) {
+                                        documentoTocado = true
+                                    }
+                                }
                         )
                         OutlinedTextField(
                             value = licenciaCliente,
                             onValueChange = { licenciaCliente = it },
                             label = { Text("N° Licencia", color = TextSecondary) },
                             singleLine = true,
+                            isError = licenciaError,
+                            supportingText = {
+                                if (licenciaError) {
+                                    Text("Mínimo 4 caracteres", color = Color(0xFFFF5252), fontSize = 10.sp)
+                                }
+                            },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = StatusGreenGlow,
                                 unfocusedBorderColor = BorderSubtle,
+                                errorBorderColor = Color(0xFFFF5252),
                                 focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
+                                unfocusedTextColor = TextPrimary,
+                                errorTextColor = TextPrimary
                             ),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .onFocusChanged { focusState ->
+                                    if (!focusState.isFocused && licenciaCliente.isNotEmpty()) {
+                                        licenciaTocado = true
+                                    }
+                                }
                         )
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // FECHA INICIO (HOY)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -281,7 +361,6 @@ fun RentaScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // FECHA DEVOLUCIÓN
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -329,16 +408,41 @@ fun RentaScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // BOTÓN ABRIR CHECKLIST
             Button(
                 onClick = {
-                    if (nombreCliente.isBlank() || telefonoCliente.isBlank() || documentoCliente.isBlank() || licenciaCliente.isBlank()) {
-                        mensajeAdvertencia = "Por favor completa todos los datos del cliente."
+                    nombreTocado = true
+                    telefonoTocado = true
+                    correoTocado = true
+                    documentoTocado = true
+                    licenciaTocado = true
+
+                    if (!Validaciones.esNombreValido(nombreCliente)) {
+                        mensajeAdvertencia = "Por favor ingresa el nombre completo del cliente (mínimo 3 caracteres)."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    if (!Validaciones.esTelefonoValido(telefonoCliente)) {
+                        mensajeAdvertencia = "El teléfono debe contener exactamente 8 números."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    if (correoCliente.isNotBlank() && !Validaciones.esCorreoValido(correoCliente)) {
+                        mensajeAdvertencia = "El correo electrónico no tiene un formato válido."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    if (!Validaciones.esDocumentoValido(documentoCliente)) {
+                        mensajeAdvertencia = "El DUI / Pasaporte debe tener al menos 8 caracteres."
+                        mostrarBannerAdvertencia = true
+                        return@Button
+                    }
+                    if (licenciaCliente.trim().length < 4) {
+                        mensajeAdvertencia = "Por favor ingresa el número de licencia del cliente."
                         mostrarBannerAdvertencia = true
                         return@Button
                     }
                     if (fechaFin == 0L) {
-                        mensajeAdvertencia = "Debes seleccionar la fecha de devolución del vehículo."
+                        mensajeAdvertencia = "Debes seleccionar la fecha programada de devolución del vehículo."
                         mostrarBannerAdvertencia = true
                         return@Button
                     }
@@ -384,7 +488,6 @@ fun RentaScreen(
         )
     }
 
-    // MODAL DE ÉXITO TRAS COMPLETAR RENTA
     DialogoMensaje(
         visible = mostrarExitoDialog,
         tipo = TipoMensaje.EXITO,
@@ -397,7 +500,6 @@ fun RentaScreen(
         }
     )
 
-    // SELECTOR DE FECHA DEVOLUCIÓN
     if (mostrarDatePickerFin) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = if (fechaFin > 0L) fechaFin else null,
@@ -441,7 +543,6 @@ fun RentaScreen(
         }
     }
 
-    // MODAL CHECKLIST
     if (mostrarModalChecklist) {
         var checkDocumentos by remember { mutableStateOf(false) }
         var checkContrato by remember { mutableStateOf(false) }
